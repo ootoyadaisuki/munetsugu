@@ -33,10 +33,13 @@
   #sfx-btn { background: none; border: none; color: var(--dim); font-size: 14px;
     cursor: pointer; padding: 0 2px; font-family: inherit; margin-left: auto; }
   #sfx-btn.off { opacity: .35; text-decoration: line-through; }
-  .hud-mid { font-size: 12px; color: var(--blue); margin-top: 2px; }
-  .hud-mid .gold { color: var(--gold); font-weight: bold; }
-  .hud-low { display: flex; gap: 10px; font-size: 11px; color: var(--dim); margin-top: 3px;
+  .hud-mid { font-size: 12px; color: var(--blue); margin-top: 2px; display: flex; gap: 10px;
     white-space: nowrap; }
+  .hud-mid .gold { color: var(--gold); font-weight: bold; }
+  .hud-low { display: flex; gap: 10px; font-size: 10.5px; color: var(--dim); margin-top: 3px;
+    white-space: nowrap; }
+  #hud-upsell { color: var(--gold); }
+  #hud-list { margin-left: auto; }
   #hud-unsub { color: var(--red); margin-left: auto; }
   body.flash-red #app { animation: redflash .7s; }
   @keyframes redflash { 0% { background: #3a1010; } 100% { background: var(--bg); } }
@@ -47,6 +50,8 @@
   .send-open { font-size: 18px; color: var(--text); font-variant-numeric: tabular-nums; }
   .send-buy { font-size: 18px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
   .send-unsub { font-size: 18px; color: var(--red); font-weight: bold; font-variant-numeric: tabular-nums; }
+  .send-upsell { font-size: 18px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
+  .send-upsell .up-note { font-size: 12px; font-weight: normal; color: var(--dim); }
   .send-sales { font-size: 21px; color: var(--gold); font-weight: bold; margin-top: 10px;
     padding-top: 12px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
   .mail-subj { font-size: 13px; color: #333; border-bottom: 1px solid #ccc;
@@ -82,6 +87,7 @@
   #choices.guard .choice { pointer-events: none; }
   .choice.redo { background: none; border-style: dashed; color: var(--dim);
     font-size: 13px; text-align: center; padding: 7px; }
+  .choice.next-btn { text-align: center; width: 160px; align-self: center; }
 
   .title-wrap { text-align: center; margin-top: 4vh; display: flex; flex-direction: column; gap: 18px; align-items: center; }
   .game-title { font-size: 30px; font-weight: bold; letter-spacing: 4px; color: var(--gold);
@@ -133,6 +139,7 @@
   .win .res-num { color: var(--gold); } .lose .res-num { color: var(--blue); }
   .kinshou .res-num { color: var(--gold); }
   .res-label { font-size: 16px; letter-spacing: 3px; color: var(--dim); }
+  .res-break { font-size: 12px; color: var(--dim); line-height: 1.8; }
   .res-copy { font-size: 19px; font-weight: bold; line-height: 1.7; }
   .res-copy.small { font-size: 16px; }
   .retry-q { text-align: center; margin-top: 26px; color: var(--text); }
@@ -167,11 +174,14 @@
       <span class="hud-sales-label">総売上</span>
       <span id="hud-sales">0円</span>
     </div>
-    <div class="hud-mid"><span id="hud-remain">史実まで あと ¥564,900,000</span></div>
-    <div class="hud-low">
-      <span id="hud-buyers">購入者 0人</span>
-      <span id="hud-list">見込み客 45,000人</span>
+    <div class="hud-mid">
+      <span id="hud-remain">史実まで あと ¥564,900,000</span>
       <span id="hud-unsub">解除 0人</span>
+    </div>
+    <div class="hud-low">
+      <span id="hud-buyers">継承 0本</span>
+      <span id="hud-upsell">アップセル 0本</span>
+      <span id="hud-list">見込み客 45,000人</span>
     </div>
   </div>
   <canvas id="art" width="360" height="200" style="display:none"></canvas>

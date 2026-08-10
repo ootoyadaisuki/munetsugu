@@ -22,7 +22,7 @@ const Econ = {
   },
   simulate(chosen) {
     const C = CONF;
-    let list = C.LIST0, buyers = 0, unsub = 0, sales = 0;
+    let list = C.LIST0, buyers = 0, upsells = 0, unsub = 0, sales = 0;
     let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
     let calm = 0, oishii = false, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
     let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false;
@@ -71,7 +71,18 @@ const Econ = {
       let dUnsub = Math.round(list * uRate);
       dUnsub = Math.min(dUnsub, Math.max(0, list - dBuy));   // リストは0未満にならない
       list = list - dBuy - dUnsub;
-      buyers += dBuy; unsub += dUnsub; sales += dBuy * C.UNIT;
+      /* アップセル: この通で買った人のうち、¥2,000,000へ進む割合。
+         いま積み上がっている信用と顧客理解でしか動かない＝煽って買わせても進まない。
+         （trust/rikai はこの通の増分を足す前の値＝ここまでに積んだぶん） */
+      let upRate = C.UP.base + trust * C.UP.trust + rikai * C.UP.rikai;
+      if (cls === 'tsuri') upRate += C.UP.tsuri;
+      if (b.tone === 'hype' || b.hiddenTone) upRate += C.UP.hype;
+      if (b.tone === 'ego') upRate += C.UP.ego;
+      if (oishii) upRate *= C.OISHII_UP_MULT;   // 買ったリストは200万まで来ない
+      upRate = Math.max(C.UP.min, Math.min(C.UP.max, upRate));
+      const dUp = Math.round(dBuy * upRate);
+      buyers += dBuy; upsells += dUp; unsub += dUnsub;
+      sales += dBuy * C.UNIT + dUp * C.UPSELL;
 
       // 隠しパラメータ更新
       const fx = C.FX[b.t];
@@ -82,7 +93,7 @@ const Econ = {
       if (dStim > 0 && calm > 0) { calm--; dStim = 0; }      // システマ: 刺激上昇を1回打ち消す
       stim = Math.max(0, stim + dStim);
 
-      log.push({ id: round.id, cls, open, conv, dBuy, dUnsub, list, sales, trueEnd,
+      log.push({ id: round.id, cls, open, conv, dBuy, dUp, upRate, dUnsub, list, sales, trueEnd,
         bType: b.t, sType: s.t });
 
       // ラウンド後の小ネタ
@@ -99,9 +110,9 @@ const Econ = {
       }
     });
 
-    // 顧客満足（解除と信用から）
+    // 顧客満足（焼いたリストの割合と信用から）
     const satisfy = Math.max(0, Math.min(100,
-      Math.round(100 - (unsub / Math.max(1, buyers * 3 + unsub)) * 100 + Math.min(10, trust / 8))));
+      Math.round(100 - (unsub / C.LIST0) * 180 + Math.min(10, trust / 8))));
     const win = sales > C.HISTORIC;
     // 総合ランク: 表（史実超え）と裏（リストを焼かない）の両立
     let rank;
@@ -124,7 +135,7 @@ const Econ = {
     munedo -= badKoneta * M.badKoneta;
     munedo -= Math.min(M.burnCap, unsub / (C.LIST0 * M.burnUnit));  // 焼いたリスト
     munedo = Math.max(0, Math.min(100, Math.round(munedo)));
-    return { sales, buyers, unsub, list, trust, rikai, expect, stim, kizukai, satisfy,
+    return { sales, buyers, upsells, unsub, list, trust, rikai, expect, stim, kizukai, satisfy,
       win, rank, munedo, tsuriCnt, egoCnt, honestCnt, sekkyoCnt, badKoneta, trueEnd: sawTrueEnd, log };
   },
 };
@@ -213,7 +224,7 @@ function remainLabel(clock) {
   const left = 18 - parseInt(clock, 10);
   return left > 0 ? `セールス終了まで、あと${left}時間` : 'セールス終了';
 }
-let HUD = { sales: 0, buyers: 0, list: CONF.LIST0, unsub: 0 };
+let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0 };
 function paintHud(clock) {
   const inGame = !['opening', 'keisho', 'ending'].includes(FLOW[S.beat]);
   $('#hud').style.display = inGame ? '' : 'none';
@@ -228,13 +239,14 @@ function paintHud(clock) {
   const rEl = $('#hud-remain');
   rEl.textContent = remain > 0 ? `史実まで、あと ${fmtYenKanji(remain)}` : `史実超え +${fmtYenKanji(-remain)}`;
   rEl.classList.toggle('gold', remain <= 20000000);
-  $('#hud-buyers').textContent = `購入者 ${fmtNum(HUD.buyers)}人`;
+  $('#hud-buyers').textContent = `継承 ${fmtNum(HUD.buyers)}本`;
+  $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `見込み客 ${fmtNum(HUD.list)}人`;
   $('#hud-unsub').textContent = `解除 ${fmtNum(HUD.unsub)}人`;
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
   const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
-  HUD = { sales: sim.sales, buyers: sim.buyers, list: sim.list, unsub: sim.unsub };
+  HUD = { sales: sim.sales, buyers: sim.buyers, upsells: sim.upsells, list: sim.list, unsub: sim.unsub };
 }
 let tweenRaf = null;
 function tween(from, to, dur, onStep) {
@@ -381,8 +393,6 @@ function next() { S.beat++; S.pending = null; save(); runBeat(); }
 
 async function runOpening() {
   const O = TEXTS.opening;
-  await showLines([...O.dark1, O.darkTag], { cls: 'center dim' });
-  await showLines(O.dark2, { cls: 'center' });
   stage().innerHTML = `<div class="title-wrap">
     <div class="game-title">${O.title}</div>
     <div class="game-sub">${O.sub}</div>
@@ -393,9 +403,21 @@ async function runOpening() {
   next();
 }
 
+/* 継承の説明。1ページずつ「次へ」ボタンで送る（誤タップで飛ばさないため） */
 async function runKeisho() {
-  await showLines(TEXTS.opening.keisho, { cls: 'dim' });
-  await showLines(TEXTS.opening.start);
+  for (const page of TEXTS.opening.keisho) {
+    await showLines(page, { cls: 'dim', noTap: true });
+    if (FAST) continue;
+    await new Promise(res => {
+      choicesEl().innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'choice next-btn';
+      b.textContent = TEXTS.opening.next;
+      b.onclick = () => { choicesEl().innerHTML = ''; Sfx.play('ui'); res(); };
+      choicesEl().appendChild(b);
+      guardTaps();
+    });
+  }
   next();
 }
 
@@ -455,8 +477,8 @@ async function showSendResult(round, idx) {
   stage().innerHTML = `<div class="send-wrap">
     <div class="send-subject">「${round.subjects['ABCD'.indexOf(pick.s)].text}」</div>
     <div class="send-state">送信中……</div>
-    <div class="send-open"></div><div class="send-buy"></div><div class="send-unsub"></div>
-    <div class="send-sales"></div></div>`;
+    <div class="send-open"></div><div class="send-buy"></div><div class="send-upsell"></div>
+    <div class="send-unsub"></div><div class="send-sales"></div></div>`;
   choicesEl().innerHTML = '';
   Sfx.play('ui');
   await wait(700);
@@ -467,9 +489,23 @@ async function showSendResult(round, idx) {
   Sfx.play('correct');
   await wait(300);
   const buyEl = stage().querySelector('.send-buy');
-  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `購入 +${fmtNum(v)}人`; });
+  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `継承 +${fmtNum(v)}本`; });
   HUD.buyers = simAfter.buyers; paintHud();
-  await wait(step.dUnsub > 0 ? 900 : 200);
+  // アップセル: 買った人のうち何人が¥2,000,000へ進んだか（信用がなければ0人）
+  await wait(500);
+  const upEl = stage().querySelector('.send-upsell');
+  if (step.dUp > 0) {
+    Sfx.play('rank');
+    await tween(0, step.dUp, 800, v => {
+      upEl.innerHTML = `アップセル +${fmtNum(v)}本` +
+        `<span class="up-note">（買った人の${Math.round(step.upRate * 100)}%）</span>`;
+    });
+  } else {
+    upEl.innerHTML = `アップセル 0本<span class="up-note">（誰も進まなかった）</span>`;
+    Sfx.play('miss');
+  }
+  HUD.upsells = simAfter.upsells; paintHud();
+  await wait(step.dUnsub > 0 ? 800 : 200);
   // 少し遅れて解除（画面を赤くする）
   if (step.dUnsub > 0) {
     Sfx.play('unsub');
@@ -569,6 +605,8 @@ async function runResult() {
   stage().innerHTML = `<div class="result-wrap ${sim.win ? 'win' : 'lose'}">
     <div class="res-num">${fmtYen(sim.sales)}</div>
     <div class="res-label">史実 ${fmtYen(CONF.HISTORIC)}　${diff >= 0 ? '+' : '−'}${fmtYen(Math.abs(diff)).slice(1)}</div>
+    <div class="res-break">継承 ${fmtNum(sim.buyers)}本 ${fmtYenKanji(sim.buyers * CONF.UNIT)}
+      ／ アップセル ${fmtNum(sim.upsells)}本 ${fmtYenKanji(sim.upsells * CONF.UPSELL)}</div>
     <div class="res-copy">${sim.win ? TEXTS.result.win : TEXTS.result.lose}</div></div>`;
   await wait(900);
   await new Promise(r => tapToContinue(r));
@@ -589,7 +627,9 @@ async function runRanks() {
   const salesRank = sim.win ? 'S' : sim.sales >= 500000000 ? 'A' : sim.sales >= 400000000 ? 'B' : 'C';
   const rows = [
     ['売上', salesRank], ['コピー', copyRank], ['顧客理解', rikaiRank], ['思いやり', omoiRank],
-    ['気遣い', kizRank], ['メルマガ解除', `${fmtNum(sim.unsub)}人`], ['顧客満足', `${sim.satisfy}%`],
+    ['気遣い', kizRank], ['継承', `${fmtNum(sim.buyers)}本`],
+    ['アップセル', `${fmtNum(sim.upsells)}本`],
+    ['メルマガ解除', `${fmtNum(sim.unsub)}人`], ['顧客満足', `${sim.satisfy}%`],
   ];
   stage().innerHTML = `<div class="ranks"><div class="res-label">RESULT</div>
     <div class="rank-rows"></div>
