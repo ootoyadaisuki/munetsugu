@@ -23,16 +23,20 @@
     padding: 8px 14px 7px; border-bottom: 2px solid var(--line); background: var(--panel);
     font-variant-numeric: tabular-nums; flex-shrink: 0;
   }
-  .hud-top { display: flex; align-items: baseline; gap: 12px; }
-  #hud-clock { color: var(--dim); font-size: 14px; letter-spacing: 1px; }
-  .hud-sales-label { color: var(--gold); font-size: 21px; font-weight: bold; margin-left: auto; }
-  #hud-sales { color: var(--gold); font-size: 21px; font-weight: bold; }
+  .hud-top { display: flex; align-items: baseline; gap: 8px; }
+  #hud-clock { color: var(--dim); font-size: 13px; letter-spacing: 1px; }
+  #hud-clock.urgent { color: var(--red); font-weight: bold; }
+  .hud-sales-row { display: flex; align-items: baseline; gap: 8px; justify-content: flex-end;
+    white-space: nowrap; }
+  .hud-sales-label { color: var(--gold); font-size: 20px; font-weight: bold; }
+  #hud-sales { color: var(--gold); font-size: 20px; font-weight: bold; }
   #sfx-btn { background: none; border: none; color: var(--dim); font-size: 14px;
-    cursor: pointer; padding: 0 2px; font-family: inherit; }
+    cursor: pointer; padding: 0 2px; font-family: inherit; margin-left: auto; }
   #sfx-btn.off { opacity: .35; text-decoration: line-through; }
   .hud-mid { font-size: 12px; color: var(--blue); margin-top: 2px; }
   .hud-mid .gold { color: var(--gold); font-weight: bold; }
-  .hud-low { display: flex; gap: 14px; font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .hud-low { display: flex; gap: 10px; font-size: 11px; color: var(--dim); margin-top: 3px;
+    white-space: nowrap; }
   #hud-unsub { color: var(--red); margin-left: auto; }
   body.flash-red #app { animation: redflash .7s; }
   @keyframes redflash { 0% { background: #3a1010; } 100% { background: var(--bg); } }
@@ -55,8 +59,8 @@
   #art { width: 100%; height: auto; max-height: 36vh; object-fit: contain;
     image-rendering: pixelated; display: block; border-bottom: 2px solid var(--line);
     background: #0b0e16; flex-shrink: 0; }
-  #stage { flex: 0 1 auto; padding: 18px; overflow-y: auto; position: relative; min-height: 0; }
-  #choices { padding: 4px 14px 10px; display: flex; flex-direction: column; gap: 10px;
+  #stage { flex: 0 1 auto; padding: 14px 16px; overflow-y: auto; position: relative; min-height: 0; }
+  #choices { padding: 4px 14px 10px; display: flex; flex-direction: column; gap: 8px;
     flex-shrink: 0; }
   #spacer { flex: 1; min-height: 0; }
 
@@ -70,10 +74,14 @@
 
   .choice {
     background: var(--panel); border: 2px solid var(--line); color: var(--text);
-    padding: 13px 14px; font-size: 14px; text-align: left; line-height: 1.5;
+    padding: 11px 13px; font-size: 14px; text-align: left; line-height: 1.5;
     cursor: pointer; font-family: inherit; border-radius: 2px;
   }
   .choice:active { background: #222a38; border-color: var(--gold); }
+  /* 直前のタップが選択肢に貫通するのを防ぐ一瞬の無効時間 */
+  #choices.guard .choice { pointer-events: none; }
+  .choice.redo { background: none; border-style: dashed; color: var(--dim);
+    font-size: 13px; text-align: center; padding: 7px; }
 
   .title-wrap { text-align: center; margin-top: 4vh; display: flex; flex-direction: column; gap: 18px; align-items: center; }
   .game-title { font-size: 30px; font-weight: bold; letter-spacing: 4px; color: var(--gold);
@@ -106,7 +114,7 @@
 
   .mail { border: 2px solid var(--line); background: #f4f2ea; color: #222; margin-bottom: 14px; }
   .mail-bar { background: #2a3140; color: #dde; font-size: 12px; padding: 6px 10px; }
-  .mail-body { padding: 14px; font-size: 15px; min-height: 70px; }
+  .mail-body { padding: 11px 13px; font-size: 15px; min-height: 56px; }
   .mail-fixed { font-weight: bold; }
   .cursor { animation: blink .8s infinite; }
 
@@ -152,15 +160,17 @@
 <div id="app">
   <div id="hud">
     <div class="hud-top">
-      <span id="hud-clock">6:00</span>
+      <span id="hud-clock">セールス終了まで、あと12時間</span>
+      <button id="sfx-btn" title="音">♪</button>
+    </div>
+    <div class="hud-sales-row">
       <span class="hud-sales-label">総売上</span>
       <span id="hud-sales">0円</span>
-      <button id="sfx-btn" title="音">♪</button>
     </div>
     <div class="hud-mid"><span id="hud-remain">史実まで あと ¥564,900,000</span></div>
     <div class="hud-low">
       <span id="hud-buyers">購入者 0人</span>
-      <span id="hud-list">見込み客 30,000人</span>
+      <span id="hud-list">見込み客 45,000人</span>
       <span id="hud-unsub">解除 0人</span>
     </div>
   </div>

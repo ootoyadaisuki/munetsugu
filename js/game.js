@@ -25,6 +25,7 @@ const Econ = {
     let list = C.LIST0, buyers = 0, unsub = 0, sales = 0;
     let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
     let calm = 0, oishii = false, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
+    let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false;
     const log = [];
     const konetaAfter = {}; KONETA.forEach(k => konetaAfter[k.after] = k);
 
@@ -40,6 +41,9 @@ const Econ = {
         : C.PAIR[cls === 'match' ? 'match' : cls === 'katasuka' ? 'katasuka' : 'neutral'];
       if (cls === 'tsuri') tsuriCnt++;
       if (b.tone === 'ego') egoCnt++;
+      // 村上宗嗣度の材料: 正直に書いた通数／上から言った通数（件名も数える）
+      if (b.tone === 'honest' && !b.hiddenTone) honestCnt++;
+      if (b.tone === 'ego' || s.tone === 'ego') sekkyoCnt++;
 
       // 開封率
       let open = C.SUBJ_OPEN[s.t] * (1 + stim * C.STIM_OPEN) * (1 - r * C.FATIGUE);
@@ -55,7 +59,7 @@ const Econ = {
       }
       let trueEnd = false;
       if (round.special === 'r12_true_end' && b.t === 'D') {
-        if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; }
+        if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; sawTrueEnd = true; }
         else conv *= 0.85;
       }
       // 解除率
@@ -90,6 +94,8 @@ const Econ = {
         if (k.effect === 'oishii' && !good) { list += C.OISHII_ADD; oishii = true; trust += C.OISHII_TRUST; badKoneta++; }
         if (k.effect === 'kizukai' && good) kizukai++;
         if (k.effect === 'kizukai' && !good) badKoneta++;
+        if (k.effect === 'ise' && good) { kizukai++; rikai += 8; }
+        if (k.effect === 'ise' && !good) { stim += 0.10; badKoneta++; }
       }
     });
 
@@ -104,9 +110,22 @@ const Econ = {
     else if (win) rank = 'B';
     else if (sales >= 450000000) rank = 'C';
     else rank = 'D';
-    const munedo = Math.min(100, Math.max(85, 100 - tsuriCnt * 3 - egoCnt * 2 - badKoneta + kizukai));
+    /* 村上宗嗣度: 減点法ではなく積み上げ。「村上宗嗣ならこう書いた」への一致率。
+       100点は簡単には出ない。売上が出ていても、やり方が違えば伸びない。 */
+    const M = C.MUNE;
+    let munedo = 0;
+    munedo += honestCnt * M.honest;                        // 正直に書いた通数（12通ぶん）
+    munedo += Math.min(M.rikaiCap, Math.max(0, rikai) * M.rikai);   // 顧客理解
+    munedo += Math.min(M.trustCap, Math.max(0, trust) * M.trust);   // 思いやり
+    munedo += kizukai * M.kizukai;                          // 気遣い（小ネタ）
+    if (sawTrueEnd) munedo += M.trueEnd;                    // 買わなかった人への最後の一通
+    munedo -= tsuriCnt * M.tsuri;                           // 釣り
+    munedo -= sekkyoCnt * M.sekkyo;                         // 上から言った
+    munedo -= badKoneta * M.badKoneta;
+    munedo -= Math.min(M.burnCap, unsub / (C.LIST0 * M.burnUnit));  // 焼いたリスト
+    munedo = Math.max(0, Math.min(100, Math.round(munedo)));
     return { sales, buyers, unsub, list, trust, rikai, expect, stim, kizukai, satisfy,
-      win, rank, munedo, tsuriCnt, egoCnt, log };
+      win, rank, munedo, tsuriCnt, egoCnt, honestCnt, sekkyoCnt, badKoneta, trueEnd: sawTrueEnd, log };
   },
 };
 
@@ -158,7 +177,7 @@ function art(key) {
   loop();
 }
 const BEAT_ART = { opening: 'title_boy', keisho: 'lp_page', R1: 'lp_page', R7: 'face_normal',
-  R12: 'face_normal', K1: 'desk', K2: 'phone_flip', K3: 'letter_note',
+  R12: 'face_normal', K1: 'desk', K2: 'phone_flip', K3: 'letter_note', K4: 'desk',
   result: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
 function beatArt(beat) { return BEAT_ART[beat] || (beat.startsWith('R') ? 'desk' : null); }
 /* 絵の時刻を進める。ラウンド＝1時間なので、9:00→20:00と移り、
@@ -189,12 +208,21 @@ function fmtYenKanji(n) {
   return out + '円';
 }
 function fmtNum(n) { return Math.round(n).toLocaleString('ja-JP'); }
+/* 時刻ではなく残り時間を出す。セールス終了は18:00（史実と同じ12時間） */
+function remainLabel(clock) {
+  const left = 18 - parseInt(clock, 10);
+  return left > 0 ? `セールス終了まで、あと${left}時間` : 'セールス終了';
+}
 let HUD = { sales: 0, buyers: 0, list: CONF.LIST0, unsub: 0 };
 function paintHud(clock) {
   const inGame = !['opening', 'keisho', 'ending'].includes(FLOW[S.beat]);
   $('#hud').style.display = inGame ? '' : 'none';
   if (!inGame) return;
-  if (clock) $('#hud-clock').textContent = clock;
+  if (clock) {
+    const cEl = $('#hud-clock');
+    cEl.textContent = remainLabel(clock);
+    cEl.classList.toggle('urgent', 18 - parseInt(clock, 10) <= 3);
+  }
   $('#hud-sales').textContent = fmtYenKanji(HUD.sales);
   const remain = CONF.HISTORIC - HUD.sales;
   const rEl = $('#hud-remain');
@@ -287,7 +315,15 @@ function shuffled(a) {
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
-function pickChoice(items, label, toText) {
+/* 直前のタップ（送り）がそのまま選択肢を押してしまう事故を防ぐ。
+   pointerdown で画面が切り替わり、指を離した pointerup で click が飛ぶため */
+function guardTaps() {
+  const box = choicesEl();
+  box.classList.add('guard');
+  setTimeout(() => box.classList.remove('guard'), 350);
+}
+const REDO = { redo: true };
+function pickChoice(items, label, toText, opts = {}) {
   return new Promise(res => {
     if (FAST) {
       let want = POLICY === 'best' ? 'A' : POLICY === 'hype' ? 'B' : 'D';
@@ -311,6 +347,14 @@ function pickChoice(items, label, toText) {
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
       choicesEl().appendChild(b);
     });
+    if (opts.redo) {
+      const b = document.createElement('button');
+      b.className = 'choice redo';
+      b.textContent = opts.redo;
+      b.onclick = () => { choicesEl().innerHTML = ''; res(REDO); };
+      choicesEl().appendChild(b);
+    }
+    guardTaps();
   });
 }
 
@@ -384,13 +428,17 @@ async function runRound(round) {
   } else {
     await showLines([`【第${idx + 1}通】 ${round.clock}`, '', ...round.situation]);
   }
-  // 2. 次の画面: メルマガ作成＋件名の選択肢
-  stage().innerHTML = ''; choicesEl().innerHTML = '';
-  stage().appendChild(composeMail(idx, null, false));
-  const subj = await pickChoice(round.subjects, '件名を選ぶ', s => `「${s.text}」`);
-  // 3. 本文の方針（作成画面に件名＋「村上です。」＋点滅カーソル）
-  stage().innerHTML = ''; stage().appendChild(composeMail(idx, subj.text, true));
-  const body = await pickChoice(round.bodies, null, b => b.text);
+  // 2〜3. メルマガ作成＋件名 → 本文。本文の画面から件名へ戻れる
+  let subj, body;
+  for (;;) {
+    stage().innerHTML = ''; choicesEl().innerHTML = '';
+    stage().appendChild(composeMail(idx, null, false));
+    subj = await pickChoice(round.subjects, '件名を選ぶ', s => `「${s.text}」`);
+    stage().innerHTML = ''; stage().appendChild(composeMail(idx, subj.text, true));
+    body = await pickChoice(round.bodies, null, b => b.text, { redo: '← 件名を選び直す' });
+    if (body !== REDO) break;
+    Sfx.play('ui');
+  }
 
   S.rounds[idx] = { b: body.t, s: subj.t };
   S.pending = { round: round.id }; save();       // コミット（結果表示から再開）
@@ -493,6 +541,7 @@ async function runKoneta(k) {
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
       choicesEl().appendChild(b);
     });
+    guardTaps();
   });
   S.koneta[k.id] = c.key; save();
   Sfx.play(c.good ? 'correct' : 'miss');
@@ -503,7 +552,8 @@ async function runKoneta(k) {
 
 async function runResult() {
   const sim = Econ.simulate(chosen());
-  $('#hud-clock').textContent = '18:00';
+  $('#hud-clock').textContent = 'セールス終了';
+  $('#hud-clock').classList.add('urgent');
   // 最後の購入が入り、カウンター停止
   stage().innerHTML = `<div class="lastcount"><div class="lc-clock">18:00</div><div class="lc-num"></div></div>`;
   choicesEl().innerHTML = '';
@@ -528,10 +578,14 @@ async function runResult() {
 async function runRanks() {
   const sim = Econ.simulate(chosen());
   const r = t => sim[t];
-  const copyRank = sim.tsuriCnt === 0 && sim.egoCnt === 0 ? 'S' : sim.tsuriCnt <= 1 ? 'A' : 'B';
-  const rikaiRank = sim.rikai >= 45 ? 'SS' : sim.rikai >= 30 ? 'S' : sim.rikai >= 15 ? 'A' : 'B';
-  const omoiRank = sim.trust >= 50 ? 'SS' : sim.trust >= 30 ? 'S' : sim.trust >= 10 ? 'A' : 'B';
-  const kizRank = sim.kizukai >= 3 ? 'S' : sim.kizukai === 2 ? 'A' : sim.kizukai === 1 ? 'B' : 'C';
+  // 各評価も辛口。Sは「村上宗嗣ならこう書いた」に届いたときだけ出す
+  const copyRank = sim.tsuriCnt === 0 && sim.egoCnt === 0 && sim.honestCnt >= 10 ? 'S'
+    : sim.tsuriCnt === 0 && sim.egoCnt <= 1 ? 'A' : sim.tsuriCnt <= 1 ? 'B' : 'C';
+  const rikaiRank = sim.rikai >= 68 ? 'SS' : sim.rikai >= 50 ? 'S' : sim.rikai >= 32 ? 'A'
+    : sim.rikai >= 16 ? 'B' : 'C';
+  const omoiRank = sim.trust >= 68 ? 'SS' : sim.trust >= 48 ? 'S' : sim.trust >= 28 ? 'A'
+    : sim.trust >= 12 ? 'B' : 'C';
+  const kizRank = sim.kizukai >= 3 ? 'S' : sim.kizukai === 2 ? 'B' : sim.kizukai === 1 ? 'C' : 'D';
   const salesRank = sim.win ? 'S' : sim.sales >= 500000000 ? 'A' : sim.sales >= 400000000 ? 'B' : 'C';
   const rows = [
     ['売上', salesRank], ['コピー', copyRank], ['顧客理解', rikaiRank], ['思いやり', omoiRank],
@@ -577,6 +631,7 @@ async function runEnding() {
       b.onclick = () => res(i);
       choicesEl().appendChild(b);
     });
+    guardTaps();
   });
   if (pick === 0) {   // YES: 周回データのみ引き継いでR1へ
     const meta = { best: S.best, clears: S.clears };
