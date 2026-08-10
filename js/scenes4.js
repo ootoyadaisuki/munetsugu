@@ -1,0 +1,575 @@
+'use strict';
+/* シーン集4（scenes1.js の書き方・密度に揃える）
+   キャンバスは 360×200。使えるもの: PAL / P / D / vgrad / lit / glow / laptop /
+   person / face / paper / windowPane / label / labelC / scanlines / T() / hash(i)
+
+   収録:
+     ART.server_room    E6「サーバー負荷90%」（AM11:30）
+     ART.server_down    同じラックが落ちた直後（E6-B の暗転ギャグ）
+     ART.books          幕間 PM4:00「教材はない。あるのは、ボロボロの一冊」
+     ART.result_bg      PM6:00 結果発表の背景（人はいない）
+     ART.epilogue_sky   エピローグ「あれから17年」
+*/
+
+/* ---- server_room / server_down の共通骨格 --------------------------
+   2枚は「同じラックの、通電しているときと落ちたとき」でなければ意味がない。
+   だから機器の並びもLEDの座席も1本の関数で作り、点灯状態だけ引数で切り替える。
+   ここを分けて書くと、見比べたときに別のラックに見えて演出が死ぬ。 */
+
+/* ラック1本ぶんの機器リスト（高さと表情を hash で崩す＝等間隔の反復を避ける）
+   戻り値: [{y, h, kind}]  kind: 0=1Uの薄い箱 / 1=ドライブ列 / 2=ファン付きの厚い箱 */
+function _rackUnits(seed, top, bottom) {
+  const list = [];
+  let y = top, i = 0;
+  while (y < bottom - 5) {
+    const r = hash(seed * 31 + i);
+    const h = 5 + Math.floor(hash(seed * 17 + i * 3) * 4) * 3;   // 5 / 8 / 11 / 14
+    if (y + h > bottom) break;
+    list.push({ y: y, h: h, kind: r < 0.34 ? 0 : (r < 0.72 ? 1 : 2), s: seed * 100 + i });
+    y += h + 1;                                                   // 1px の隙間＝ラックレール
+    i++;
+  }
+  return list;
+}
+
+/* 回転する冷却ファン（羽根を4本、角度から打つ。止めるときは ang を固定値で渡す） */
+function _fanBlades(cx, cy, r, ang, col) {
+  for (let k = 0; k < 4; k++) {
+    const a = ang + k * Math.PI / 2;
+    for (let d = 1; d <= r; d++) D(cx + Math.cos(a) * d, cy + Math.sin(a) * d, col);
+  }
+}
+
+/* ラック本体。on=true で通電（赤LEDが明滅・ファンが回る）、false で落ちた状態。
+   x,y,w,h はキャビネットの外形。seed が同じなら機器配置は完全に一致する。 */
+function _rackBody(x, y, w, h, seed, on) {
+  // キャビネットの枠（黒に近い鉄。手前側のフチだけ1px明るくして厚みを出す）
+  P(x, y, w, h, lit(PAL.night, 1.5));
+  P(x, y, w, 2, PAL.steel);
+  P(x, y, 2, h, lit(PAL.steel, 0.8));
+  P(x + w - 2, y, 2, h, lit(PAL.steel, 0.55));
+  P(x, y + h - 3, w, 3, lit(PAL.steel, 0.6));                     // 足元のベース
+
+  const ix = x + 3, iw = w - 6;                                   // 機器の載る内側
+  P(ix, y + 3, iw, h - 7, lit(PAL.night, 0.8));                   // ラック内の闇
+
+  const units = _rackUnits(seed, y + 4, y + h - 5);
+  for (let u = 0; u < units.length; u++) {
+    const m = units[u], my = m.y, mh = m.h;
+    // 機器のフロントパネル（明るさを個体差にする＝同じ形の反復に見せない）
+    const face = lit(PAL.slate, 0.75 + hash(m.s) * 0.4);
+    P(ix, my, iw, mh, face);
+    P(ix, my, iw, 1, lit(face, 1.35));                            // 上面のハイライト
+    P(ix, my + mh - 1, iw, 1, lit(face, 0.55));                   // 下の影
+    // 取っ手（左右）——機器によって有無を変える
+    if (hash(m.s + 5) > 0.35) {
+      P(ix + 1, my + 1, 2, mh - 2, lit(face, 1.5));
+      P(ix + iw - 3, my + 1, 2, mh - 2, lit(face, 1.5));
+    }
+
+    if (m.kind === 1) {                                           // ドライブ列（縦スリット）
+      const n = 4 + Math.floor(hash(m.s + 2) * 5);
+      for (let k = 0; k < n; k++) {
+        const dx = ix + 6 + k * Math.floor((iw - 14) / n);
+        P(dx, my + 2, 2, mh - 4, lit(PAL.night, 1.9));
+        // ドライブのアクセスランプ。落ちていれば当然、1個も点かない
+        if (on && ((T() * (1.6 + hash(m.s + k) * 2.4) + hash(m.s * 3 + k)) % 1) < 0.42) {
+          D(dx, my + mh - 3, PAL.red);
+        }
+      }
+    } else if (m.kind === 2) {                                    // ファン付きの厚い箱
+      const cx = ix + 9 + Math.floor(hash(m.s + 7) * (iw - 26));
+      const cy = my + Math.floor(mh / 2);
+      const r = Math.min(4, Math.floor(mh / 2) - 1);
+      if (r >= 2) {
+        P(cx - r - 1, cy - r - 1, r * 2 + 3, r * 2 + 3, lit(PAL.night, 1.2)); // 吸気口の枠
+        // 回っていれば角度が進む／落ちていれば同じ角度で固定＝「止まっている」
+        _fanBlades(cx, cy, r, on ? T() * 5.5 + hash(m.s) * 6 : hash(m.s) * 6,
+                   on ? lit(PAL.ash, 0.75) : lit(PAL.ash, 0.32));
+        D(cx, cy, on ? PAL.ash : lit(PAL.ash, 0.4));
+      }
+      // 通気スリット
+      for (let k = 0; k < 3; k++) P(ix + iw - 9, my + 2 + k * 2, 6, 1, lit(PAL.night, 1.6));
+    } else {                                                      // 1Uの薄い箱＝LEDの座席
+      for (let k = 0; k < 3; k++) P(ix + iw - 12 - k * 4, my + 2, 2, mh - 4, lit(PAL.night, 1.7));
+    }
+
+    // ステータスLED（座席の数・位置を hash で崩す。等間隔に並べない）
+    const n = 2 + Math.floor(hash(m.s + 11) * 5);
+    for (let k = 0; k < n; k++) {
+      const lx = ix + 4 + Math.floor(hash(m.s * 7 + k) * (iw - 12));
+      const ly = my + 1 + Math.floor(hash(m.s * 13 + k) * Math.max(1, mh - 3));
+      if (!on) {
+        D(lx, ly, lit(PAL.red, 0.16));                            // 消灯（黒い座席だけ残る）
+        continue;
+      }
+      // 明滅。周期も位相も個体ごとにずらす＝全部が同時に光ると機械に見えない
+      const sp = 1.1 + hash(m.s + k * 5) * 3.2;
+      const ph = hash(m.s * 5 + k * 3);
+      const b = ((T() * sp + ph) % 1) < (0.3 + hash(m.s + k) * 0.4);
+      D(lx, ly, b ? PAL.red : lit(PAL.red, 0.3));
+      if (b && hash(m.s + k + 1) > 0.8) D(lx + 1, ly, lit(PAL.red, 0.7)); // 強く光る個体
+    }
+  }
+  return units;
+}
+
+/* ラックの上から垂れて束ねられたケーブル（両シーン共通。落ちても形は変わらない） */
+function _rackCables(x, y, w, on) {
+  for (let i = 0; i < 9; i++) {
+    const cx = x + 4 + Math.floor(hash(i * 3 + 1) * (w - 8));
+    const drop = 10 + Math.floor(hash(i * 7 + 2) * 22);
+    const col = [lit(PAL.slate, 0.7), lit(PAL.steel, 0.7), lit(PAL.amber, 0.45)][i % 3];
+    for (let d = 0; d < drop; d++) {                              // 少したわませて垂らす
+      D(cx + Math.round(Math.sin((d + i * 4) * 0.35) * 1.6), y + d, col);
+    }
+  }
+  P(x + 6, y + 16, w - 12, 3, lit(PAL.night, 1.6));               // 結束バンドの帯
+  P(x + 6, y + 16, w - 12, 1, lit(PAL.steel, on ? 0.9 : 0.5));
+}
+
+/* ── E6 AM11:30 サーバー負荷90% ──────────────────────
+   2009年のサーバーラックを正面から。マシン室は暗く、光っているのは無数の赤LEDだけ。
+   負荷メーターは右へ振り切れかけ、針が90%の壁を叩いている。
+   「このままだと落ちます！」——絵の側では、まだ落ちていない。 */
+ART.server_room = () => {
+  // マシン室（床は冷たいグレー、奥は闇）
+  P(0, 0, 360, 200, lit(PAL.night, 1.1));
+  vgrad(0, 0, 360, 120, PAL.night, lit(PAL.navy, 0.9), 6);
+  P(0, 152, 360, 48, lit(PAL.slate, 0.42));                       // フリーアクセス床
+  for (let i = 0; i < 7; i++) P(i * 52, 152, 1, 48, lit(PAL.slate, 0.6)); // 床パネルの目地
+  P(0, 152, 360, 2, lit(PAL.steel, 0.7));
+
+  // 空調ダクト（天井。緊迫感は「囲まれている」で作る）
+  P(0, 0, 360, 10, lit(PAL.navy, 0.8));
+  for (let i = 0; i < 12; i++) P(8 + i * 30, 10, 18, 2, lit(PAL.steel, 0.45));
+
+  // ラック3本。中央が主役、左右は奥に引いて暗く（seedを分けて配置を別物にする）
+  _rackBody(14, 34, 66, 122, 3, true);
+  _rackBody(276, 34, 66, 122, 9, true);
+  _c.globalAlpha = 0.45; P(14, 34, 66, 122, PAL.night); P(276, 34, 66, 122, PAL.night); _c.globalAlpha = 1;
+  _rackCables(96, 12, 168, true);
+  _rackBody(96, 26, 168, 130, 1, true);
+
+  // 負荷メーター（ラック最上段のパネル。針が右端の手前で震える）
+  const mx = 108, my = 30;
+  P(mx, my, 84, 16, lit(PAL.night, 1.3));
+  P(mx, my, 84, 1, lit(PAL.steel, 0.8));
+  for (let i = 0; i < 20; i++) {                                  // 目盛りバー（90%まで埋まる）
+    const on = i < 18;
+    P(mx + 4 + i * 4, my + 4, 3, 8, on ? (i > 13 ? PAL.red : PAL.amber) : lit(PAL.slate, 0.5));
+  }
+  const jitter = Math.sin(T() * 9) * 1.5 + Math.sin(T() * 3.7) * 1;
+  P(mx + 74 + jitter, my + 2, 1, 12, PAL.gold);                   // 針（振り切れ寸前）
+  if ((T() * 3) % 1 < 0.5) P(mx + 76, my + 4, 5, 8, PAL.red);     // 赤ゾーンの警告灯
+
+  // 非常灯（天井の回転灯。壁を舐めるように赤が流れる）
+  const sw = (Math.sin(T() * 1.6) + 1) / 2;
+  glow(40 + sw * 280, 14, 90, PAL.red, 0.10);
+  glow(180, 92, 150, PAL.red, 0.13);                              // ラック全体に乗る赤
+
+  scanlines(0, 0, 360, 200, 0.07);
+};
+
+/* ── E6-B サーバーが落ちた直後 ──────────────────────
+   server_room と同じ構図・同じ seed。違うのは「点いているかどうか」だけ。
+   LEDはほぼ全消灯、ファンは同じ角度で止まり、残るのは非常灯の弱い赤。
+   ラックの前には何もない暗闇——10分間、売上が止まっている絵。 */
+ART.server_down = () => {
+  // 同じ部屋を、光源を失った明るさで塗る
+  P(0, 0, 360, 200, lit(PAL.night, 0.7));
+  vgrad(0, 0, 360, 120, lit(PAL.night, 0.6), lit(PAL.navy, 0.5), 6);
+  P(0, 152, 360, 48, lit(PAL.slate, 0.16));
+  for (let i = 0; i < 7; i++) P(i * 52, 152, 1, 48, lit(PAL.slate, 0.26));
+  P(0, 152, 360, 2, lit(PAL.steel, 0.28));
+
+  P(0, 0, 360, 10, lit(PAL.navy, 0.45));
+  for (let i = 0; i < 12; i++) P(8 + i * 30, 10, 18, 2, lit(PAL.steel, 0.2));
+
+  // ラック（seed も座標も server_room と同一。点灯フラグだけ false）
+  _rackBody(14, 34, 66, 122, 3, false);
+  _rackBody(276, 34, 66, 122, 9, false);
+  _c.globalAlpha = 0.55; P(14, 34, 66, 122, PAL.night); P(276, 34, 66, 122, PAL.night); _c.globalAlpha = 1;
+  _rackCables(96, 12, 168, false);
+  _rackBody(96, 26, 168, 130, 1, false);
+
+  // 負荷メーター（全消灯。針だけ0へ戻って動かない）
+  const mx = 108, my = 30;
+  P(mx, my, 84, 16, lit(PAL.night, 0.9));
+  P(mx, my, 84, 1, lit(PAL.steel, 0.35));
+  for (let i = 0; i < 20; i++) P(mx + 4 + i * 4, my + 4, 3, 8, lit(PAL.slate, 0.22));
+  P(mx + 4, my + 2, 1, 12, lit(PAL.ash, 0.35));
+
+  // 非常灯だけが生きている（ゆっくり息をする赤。回転灯ではなく、ただの残り火）
+  const pulse = 0.06 + (Math.sin(T() * 1.1) + 1) / 2 * 0.07;
+  P(178, 4, 6, 4, lit(PAL.red, 0.8));                             // 天井の小さな非常灯
+  glow(181, 8, 70, PAL.red, pulse + 0.04);
+  glow(180, 100, 130, PAL.red, pulse);
+
+  // ラックの前の暗闇（手前を落として「何も見えない」を作る）
+  for (let i = 0; i < 22; i++) {
+    _c.globalAlpha = i / 22 * 0.55;
+    P(0, 178 - i * 2, 360, 2, '#000');
+    _c.globalAlpha = 1;
+  }
+  scanlines(0, 0, 360, 200, 0.10);
+};
+
+/* ---- books の共通骨格 ----------------------------------------------
+   左右を「同じ種類の物体」に見せるため、2冊とも同じ関数で描く。
+   投影は 3/4 の平置き（表紙を上に、少しだけ右へ倒す＝行ごとに sh だけずらす）。
+   見える面は3つ:
+     ・表紙（上面。パラレログラム）
+     ・小口＝ページの側面（下辺から下へ厚みぶん。層になった横線が「本」の署名になる）
+     ・背（左辺のふくらみ）
+   新品と使い込みの差は opts.worn だけ——角が丸いか／小口が波打つか／背が割れるか。 */
+function _bookSolid(x, y, w, h, thick, sh, cover, opts) {
+  opts = opts || {};
+  const worn = !!opts.worn;
+  const spine = opts.spine || lit(cover, 0.62);
+  const pgA = opts.pageA || PAL.paper;
+  const pgB = opts.pageB || lit(PAL.paper, 0.8);
+
+  /* 角の丸み（使い込んだ本は四隅が削れて丸い。新品は0＝ぴしっと直角） */
+  const inset = (r) => {
+    if (!worn) return 0;
+    const d = Math.min(r, h - 1 - r);
+    return d === 0 ? 3 : d === 1 ? 2 : d === 2 ? 1 : 0;
+  };
+
+  const bx0 = x + (h - 1) * sh;                     // 下辺（＝小口が並ぶ辺）の左端
+  const bIn = inset(h - 1);
+
+  /* --- 小口（ページの束）。列ごとに厚みを変えて膨らませる ---
+     ここが「紙の束」と「一冊の本」を分ける最重要部。層の線を必ず入れる。 */
+  const depth = [];
+  for (let c = 0; c < w; c++) {
+    if (c < bIn || c > w - 1 - bIn) { depth.push(0); continue; }
+    // 波打ち（何十回も開かれてページが膨らんだ形）。新品は完全に平ら。
+    // 振幅は控えめに——大きく振ると小口がギザギザの毛羽になって「本」に見えなくなる
+    const wave = worn
+      ? Math.round(Math.sin(c * 0.32) * 1.3 + Math.sin(c * 0.09 + 1.3) * 1.1)
+      : 0;
+    const d = Math.max(4, thick + wave);
+    depth.push(d);
+    for (let t = 0; t < d; t++) {
+      let col;
+      if (t === 0) col = lit(cover, 0.75);          // 表紙の板の小口（芯が見える1px）
+      else if (c < 7) col = spine;                  // 背のまわり込み
+      else col = (t % 3 === 2) ? lit(pgB, 0.72) : (t % 2 ? pgB : pgA);
+      D(bx0 + c, y + h + t, col);
+    }
+    D(bx0 + c, y + h + d, lit(PAL.night, 1.25));    // 接地の影
+  }
+
+  /* --- 背（左のふくらみ。丸背なので外へ2〜3px張り出す） --- */
+  for (let r = 0; r < h; r++) {
+    const ins = inset(r);
+    if (ins > 2) continue;
+    const bulge = worn ? 3 + (Math.sin(r * 0.45) > 0.2 ? 1 : 0) : 3;
+    for (let b = 1; b <= bulge; b++) {
+      D(x + r * sh - b + ins, y + r, b === bulge ? lit(spine, 0.62) : spine);
+    }
+  }
+
+  /* --- 表紙（上面） --- */
+  for (let r = 0; r < h; r++) {
+    const ins = inset(r);
+    // 日焼け：使い込んだ本は手前ほど褪せる
+    const k = worn ? 0.82 + (r / h) * 0.3 : 1;
+    P(x + r * sh + ins, y + r, w - ins * 2, 1, lit(cover, k));
+  }
+  P(x, y, w, 1, lit(cover, worn ? 1.05 : 1.45));    // 天のエッジ（新品は強く光る）
+
+  return { bx0: bx0, bIn: bIn, depth: depth };
+}
+
+/* ── 幕間 PM4:00 教材 ──────────────────────
+   「教材はない。あるのは、ボロボロになった一冊の小説。」
+   テーブルの上、真上からの静かな光。左に高い教材（分厚い豪華な本＝帯が掛かったまま、
+   角は直角、小口は工場出荷のまま真っ平ら）、右にボロボロの小説。
+   2冊とも同じ 3/4 投影の「一冊の本」として描き、違うのは状態だけにしてある。
+   ※実在の書名は描かない。題字は読めないダミーの罫だけ。 */
+ART.books = () => {
+  // 部屋（背景は徹底して引く。見せたいのは机の上の2冊だけ）
+  P(0, 0, 360, 200, lit(PAL.navy, 0.55));
+  vgrad(0, 0, 360, 72, lit(PAL.night, 1.1), lit(PAL.navy, 0.85), 6);
+  // テーブル（奥のエッジで面を作る。木目は hash で長さを崩す）
+  P(0, 72, 360, 4, lit(PAL.amber, 1.2));
+  P(0, 76, 360, 124, PAL.amber);
+  P(0, 88, 360, 112, lit(PAL.amber, 0.72));
+  for (let i = 0; i < 11; i++) {
+    P(4 + i * 34, 92 + Math.floor(hash(i) * 100), 26 + hash(i + 4) * 30, 1, lit(PAL.amber, 0.56));
+  }
+  // 真上からの静かな光（2冊のあいだに落ちる）
+  glow(180, 122, 160, PAL.amber, 0.20);
+
+  /* --- 左：高い教材（分厚い新品の本）--------------------------------
+     直線しかない。角は直角、小口は真っ平ら、面は艶あり、帯は掛かったまま。
+     ＝一度も開かれていない。 */
+  const AX = 24, AY = 84, AW = 88, AH = 52, ATH = 26, SH = 0.46;
+  _c.globalAlpha = 0.34;                                        // 影（硬い＝浮いていない）
+  P(AX + 6, AY + AH + ATH + 1, AW, 3, '#241606');
+  _c.globalAlpha = 1;
+  const a = _bookSolid(AX, AY, AW, AH, ATH, SH, PAL.slate, {
+    spine: lit(PAL.slate, 0.7), pageA: PAL.white, pageB: lit(PAL.white, 0.86),
+  });
+  // 箔押しの飾り罫（文字は描かない。読めない罫だけ）
+  for (let r = 10; r < 13; r++) P(AX + r * SH + 12, AY + r, 58, 1, PAL.gold);
+  for (let r = 17; r < 18; r++) P(AX + r * SH + 12, AY + r, 40, 1, lit(PAL.gold, 0.72));
+  for (let r = 21; r < 22; r++) P(AX + r * SH + 12, AY + r, 48, 1, lit(PAL.gold, 0.72));
+  P(AX + 6 * SH + 8, AY + 6, AW - 16, 1, lit(PAL.gold, 0.5));   // 罫の囲み（上）
+  P(AX + 45 * SH + 8, AY + 45, AW - 16, 1, lit(PAL.gold, 0.5)); // （下）
+  // 帯（未開封の証拠。表紙の傾きに沿って巻かれている）
+  for (let r = 33; r < 44; r++) {
+    P(AX + r * SH, AY + r, AW, 1, r === 33 ? lit(PAL.red, 1.35) : PAL.red);
+  }
+  for (let i = 0; i < 4; i++) P(AX + 37 * SH + 8 + i * 18, AY + 37, 11, 2, lit(PAL.paper, 0.92));
+  // シュリンクの継ぎ目（縦に1本、てらてら光る）
+  for (let r = 0; r < AH; r++) D(AX + r * SH + 44, AY + r, lit(PAL.white, 0.55));
+  // 表紙の光沢（PP加工。太く薄い斜めの帯＝傷ではなく、面のてかり）
+  for (let i = 0; i < 30; i++) {
+    _c.globalAlpha = 0.09;
+    P(AX + 10 + i + (AH - 4 - i) * SH, AY + AH - 4 - i, 12, 2, PAL.white);
+    _c.globalAlpha = 1;
+  }
+  // 天に薄く乗ったほこり＝置かれたまま動いていない
+  for (let i = 0; i < 7; i++) D(AX + 8 + hash(i + 2) * 70, AY + 1, lit(PAL.ash, 0.5));
+
+  /* --- 右：ボロボロの小説（同じ形の「一冊の本」。違うのは状態だけ）-----
+     角は丸く削れ、小口は波打って膨らみ、背は割れて中身が見えかけている。 */
+  // 表紙は褪せた赤い布装。机の飴色に沈まないよう、左の紺と同じくらい机から浮く色を選ぶ
+  const WORN = lit(PAL.red, 0.62);
+  const BX = 212, BY = 84, BW = 88, BH = 52, BTH = 24;
+  _c.globalAlpha = 0.32;                                        // 影（低く広がる＝沈んでいる）
+  P(BX + 4, BY + BH + BTH + 2, BW + 2, 3, '#241606');
+  _c.globalAlpha = 1;
+  const b = _bookSolid(BX, BY, BW, BH, BTH, SH, WORN, {
+    worn: true, spine: lit(PAL.red, 0.42),
+    pageA: lit(PAL.paper, 0.88), pageB: lit(PAL.paper, 0.66),   // 焼けて黄ばんだ小口
+  });
+  // 背割れ（左のふくらみに走る白い筋。位置も長さもバラして「等間隔の穴」に見せない）
+  for (let i = 0; i < 5; i++) {
+    const r = 6 + Math.floor(hash(i * 5 + 1) * (BH - 14));
+    const off = 1 + Math.floor(hash(i * 3 + 2) * 3);
+    P(BX + r * SH - off, BY + r, 1 + Math.floor(hash(i) * 2), 1, lit(PAL.paper, 0.62));
+  }
+  P(BX + 19 * SH - 3, BY + 19, 3, 2, lit(PAL.paper, 0.9));      // いちばん深い割れ＝中身が覗く
+  // 題字＝表紙に残った読めないダミーの罫（褪せて半分消えている。実在の書名は描かない）
+  for (let r = 11; r < 13; r++) P(BX + r * SH + 14, BY + r, 40, 1, lit(PAL.paper, 0.45));
+  P(BX + 18 * SH + 14, BY + 18, 24, 1, lit(PAL.paper, 0.3));
+  // 表紙の擦れ（角のまわりと、いちばん触る右下が白っぽく毛羽立つ）
+  for (let i = 0; i < 22; i++) {
+    const r = Math.floor(hash(i * 3 + 5) * BH);
+    const cx = BX + r * SH + 4 + hash(i * 7) * (BW - 10);
+    _c.globalAlpha = 0.18 + hash(i) * 0.2;
+    P(cx, BY + r, 1 + hash(i + 2) * 3, 1, lit(PAL.paper, 0.8));
+    _c.globalAlpha = 1;
+  }
+  // 手垢（親指の当たる右下と、小口の下側が黒ずむ）
+  for (let i = 0; i < 18; i++) {
+    _c.globalAlpha = 0.09 + hash(i) * 0.13;
+    const r = Math.floor(30 + hash(i * 9) * (BH - 32));
+    P(BX + r * SH + BW - 26 + hash(i + 4) * 20, BY + r, 4, 2, '#3a2a1c');
+    _c.globalAlpha = 1;
+  }
+  for (let i = 0; i < 14; i++) {
+    _c.globalAlpha = 0.12 + hash(i + 3) * 0.14;
+    const c = 24 + Math.floor(hash(i * 11) * (BW - 34));
+    P(b.bx0 + c, BY + BH + 6 + hash(i) * 8, 4, 2, '#4a3524');
+    _c.globalAlpha = 1;
+  }
+  // 付箋（小口から数枚だけ下へはみ出す＝挟まっている。長さも色も高さもバラバラ）
+  for (let i = 0; i < 5; i++) {
+    const c = 22 + Math.floor(hash(i * 13 + 2) * (BW - 38));
+    const d = b.depth[c] || BTH;
+    const tl = 5 + Math.floor(hash(i * 4) * 6);
+    const tc = [PAL.gold, PAL.crt, '#d98aa0', lit(PAL.paper, 0.95)][i % 4];
+    const top = BY + BH + Math.floor(d * (0.25 + hash(i + 6) * 0.5));
+    P(b.bx0 + c, top, 4, d, tc);                                // 中に挟まった本体
+    P(b.bx0 + c, BY + BH + d - 1, 4, tl, tc);                   // 下へはみ出したぶん
+    P(b.bx0 + c, BY + BH + d + tl - 1, 4, 1, lit(tc, 0.6));
+  }
+  // ドッグイヤー（下辺の右寄りで、ページの角が1枚折れて飛び出している）
+  for (let i = 0; i < 6; i++) {
+    P(b.bx0 + BW - 16 + i, BY + BH + 3 + i, 5 - i, 1, lit(PAL.paper, 0.95));
+  }
+  // 栞紐（背の側から垂れて、机の上でくたっと曲がる）
+  for (let i = 0; i < 16; i++) {
+    D(b.bx0 + 5 + Math.round(Math.sin(i * 0.5) * 3), BY + BH + BTH + 2 + i, i > 11 ? lit(PAL.red, 0.75) : PAL.red);
+  }
+  P(b.bx0 + 2, BY + BH + BTH + 16, 7, 2, lit(PAL.red, 0.6));    // 机に着いた先端
+
+  // 画面の隅を落として、机の上へ視線を集める
+  for (let i = 0; i < 14; i++) {
+    _c.globalAlpha = 0.03;
+    P(0, 0, 360, 200 - i * 6, '#000');
+    _c.globalAlpha = 1;
+  }
+  scanlines(0, 0, 360, 200, 0.05);
+};
+
+/* ── PM6:00 結果発表の背景 ──────────────────────
+   18:00。12時間が終わったオフィス。窓の外は夕暮れが終わって藍に変わる直前。
+   机には空のマグ、閉じたノートPC、散らかった紙。人はいない——主役は数字なので絵は引く。
+   画面の下半分は暗く落とし、上に載る文字が確実に読めるようにしてある。 */
+ART.result_bg = () => {
+  // 室内（照明は落ちている。窓からの残光だけ）
+  P(0, 0, 360, 200, lit(PAL.navy, 0.6));
+  vgrad(0, 0, 360, 116, lit(PAL.navy, 0.75), lit(PAL.navy, 0.45), 6);
+
+  // 窓（夕暮れの最後。橙が薄まりきって藍が降りてくる境目）
+  windowPane(24, 20, 128, 76, '#243250', '#7a5a5e');
+  vgrad(26, 74, 124, 20, '#8a5a48', '#c07a44', 5);                // 地平すれすれの残照
+  for (let i = 0; i < 11; i++) {                                  // 遠くのビル（灯りは疎ら）
+    const bx = 26 + i * 12, bh = 10 + hash(i + 2) * 22;
+    P(bx, 94 - bh, 10, bh, '#161d33');
+    if (hash(i + 6) > 0.5) D(bx + 3, 94 - bh + 4, PAL.amber);
+    if (hash(i + 13) > 0.7) D(bx + 7, 94 - bh + 9, lit(PAL.amber, 0.8));
+  }
+  P(24, 20, 128, 1, lit(PAL.dusk, 0.5));                          // サッシに乗る残光
+
+  // 右の窓（もう一枚。奥行きを作りつつ、右上を暗くして文字の逃げ場にする）
+  windowPane(238, 26, 84, 62, '#1b2742', '#5c4a5c');
+  _c.globalAlpha = 0.45; P(236, 24, 88, 66, PAL.night); _c.globalAlpha = 1;
+
+  // 壁と机
+  P(0, 116, 360, 4, lit(PAL.slate, 0.7));
+  P(0, 120, 360, 80, lit(PAL.navy, 0.5));
+  P(40, 128, 268, 7, PAL.slate);
+  P(40, 135, 268, 4, lit(PAL.slate, 0.55));
+  P(56, 139, 6, 30, lit(PAL.slate, 0.4));
+  P(288, 139, 6, 30, lit(PAL.slate, 0.4));
+
+  // 閉じたノートPC（開いていない＝仕事が終わった合図。液晶の光もない）
+  P(96, 118, 74, 6, PAL.slate);
+  P(96, 118, 74, 2, lit(PAL.slate, 1.4));
+  P(96, 124, 74, 4, lit(PAL.slate, 0.55));
+  P(112, 121, 42, 1, lit(PAL.steel, 0.9));                        // 天板の合わせ目
+  D(166, 121, lit(PAL.red, 0.5));                                 // 落ちたスリープランプ
+
+  // 空のマグ（湯気は上げない。空だから）
+  P(186, 108, 13, 12, PAL.paper);
+  P(199, 111, 4, 5, PAL.paper);
+  P(187, 108, 11, 2, lit(PAL.ash, 0.9));                          // 内側の縁＝空
+  P(188, 110, 9, 2, '#3a2a20');                                   // 底に残った跡
+  _c.globalAlpha = 0.3; P(186, 120, 18, 2, '#000'); _c.globalAlpha = 1;
+
+  // 散らかった紙（角度も重なりも hash で崩す。整列させない）
+  paper(56, 112, 26, 9, PAL.paper, 2);
+  paper(64, 116, 22, 8, lit(PAL.paper, 0.86), 2);
+  paper(216, 114, 30, 10, lit(PAL.paper, 0.92), 3);
+  paper(236, 110, 20, 8, lit(PAL.paper, 0.8), 2);
+  for (let i = 0; i < 5; i++) {                                   // 床に落ちた紙
+    const px = 30 + hash(i * 5 + 1) * 290, py = 146 + hash(i * 3) * 34;
+    paper(px, py, 14 + hash(i + 8) * 12, 6, lit(PAL.paper, 0.5 + hash(i) * 0.2), 1);
+  }
+  // 転がったペン
+  P(150, 124, 16, 2, PAL.gold);
+  P(164, 124, 3, 2, lit(PAL.gold, 0.6));
+
+  // 残光のなじませ（窓側だけ暖かく）
+  glow(88, 70, 130, PAL.dusk, 0.14);
+
+  // 下半分を落とす（この上に金額が載る。文字の可読性を絵より優先する）
+  for (let i = 0; i < 26; i++) {
+    _c.globalAlpha = Math.min(0.62, i / 26 * 0.72);
+    P(0, 108 + i * 4, 360, 4, '#05070d');
+    _c.globalAlpha = 1;
+  }
+  scanlines(0, 0, 360, 200, 0.06);
+};
+
+/* ── エピローグ「あれから17年」 ──────────────────────
+   2026年。2009年の暗い室内から、外へ出た絵。旅先の朝、広い水平線、高い空。
+   人物は小さく、後ろ姿でひとりだけ。顔は描かない（誰でもよく、あなたでもいい）。
+   雲と鳥がゆっくり動く。「要は、楽しいことだけやる。」の解放感。
+   ただし上に白文字が載るので、空の上半分は青を残して白飛びさせない。 */
+ART.epilogue_sky = () => {
+  // 空（上は深い青＝文字の下地／下は水平線へ向かって明るく抜ける）
+  vgrad(0, 0, 360, 128, '#3f6ea8', '#b9d2d6', 10);
+  // 高いところに薄い巻雲（横に伸ばして「高い空」を出す）
+  for (let i = 0; i < 6; i++) {
+    const cy = 12 + hash(i * 3) * 34;
+    const cw = 40 + hash(i + 2) * 70;
+    const cx = ((hash(i * 7) * 360 + T() * (2 + hash(i) * 3)) % 420) - 40;
+    _c.globalAlpha = 0.16 + hash(i + 5) * 0.14;
+    P(cx, cy, cw, 2, PAL.white);
+    P(cx + 8, cy + 3, cw - 20, 1, PAL.white);
+    _c.globalAlpha = 1;
+  }
+  // 積雲（ゆっくり右へ流れる。塊を3つ重ねて綿にする）
+  for (let i = 0; i < 4; i++) {
+    const cx = ((hash(i * 11 + 3) * 380 + T() * (3.5 + hash(i) * 2.5)) % 440) - 60;
+    const cy = 46 + hash(i * 5) * 30;
+    const s = 0.7 + hash(i + 9) * 0.8;
+    _c.globalAlpha = 0.72;
+    P(cx, cy, 34 * s, 8 * s, '#e6eef0');
+    P(cx + 8 * s, cy - 5 * s, 18 * s, 8 * s, '#eef4f4');
+    P(cx + 20 * s, cy - 2 * s, 14 * s, 6 * s, '#e0e9ec');
+    _c.globalAlpha = 0.5;
+    P(cx + 2 * s, cy + 7 * s, 28 * s, 2 * s, '#a8bfc8');          // 雲の底の影
+    _c.globalAlpha = 1;
+  }
+  // 鳥（2羽。ゆっくり横切りながら、羽ばたきで上下する）
+  for (let i = 0; i < 2; i++) {
+    const t = (T() * 0.05 + i * 0.42) % 1;
+    const bx = 380 - t * 420, by = 34 + i * 13 + Math.sin(T() * 1.4 + i) * 2;
+    const flap = Math.sin(T() * 3 + i * 2) > 0 ? 1 : 0;
+    P(bx, by, 2, 1, lit(PAL.navy, 1.1));
+    P(bx - 2, by - flap, 2, 1, lit(PAL.navy, 1.1));
+    P(bx + 2, by - flap, 2, 1, lit(PAL.navy, 1.1));
+  }
+
+  // 水平線（ここが画面でいちばん明るいが、白ではなく淡い水色で止める）
+  P(0, 126, 360, 2, '#d6e6e4');
+  // 海（沖は明るく、手前ほど濃い）
+  vgrad(0, 128, 360, 34, '#8fb6bd', '#3f6f80', 7);
+  // 光の道（太陽の反射。手前ほど幅を広げる＝一点透視）
+  for (let i = 0; i < 17; i++) {
+    const y = 128 + i * 2;
+    const w = 4 + i * 2;
+    const on = ((T() * 1.2 + hash(i) * 2) % 1) < 0.75;
+    _c.globalAlpha = on ? 0.30 - i * 0.012 : 0.16;
+    P(238 - w / 2 + Math.sin(T() * 0.7 + i * 0.6) * 2, y, w, 2, '#f2f6e8');
+    _c.globalAlpha = 1;
+  }
+  // 波（横線を hash でずらして打つ。等間隔にしない）
+  for (let i = 0; i < 22; i++) {
+    const wy = 130 + hash(i * 3 + 1) * 30;
+    const wx = hash(i * 7) * 340;
+    const ww = 6 + hash(i + 4) * 16;
+    _c.globalAlpha = 0.35;
+    P(wx + Math.sin(T() * 0.9 + i) * 2, wy, ww, 1, '#cfe3e2');
+    _c.globalAlpha = 1;
+  }
+
+  // 砂浜（手前。白飛びを避けるため、白ではなく温かいベージュで置く）
+  vgrad(0, 162, 360, 38, '#c9b791', '#9b8a68', 5);
+  P(0, 162, 360, 1, '#ded0ac');
+  for (let i = 0; i < 26; i++) {                                  // 砂の粒と貝殻
+    D(hash(i * 5) * 360, 166 + hash(i * 3 + 2) * 32, hash(i) > 0.6 ? '#e2d6b6' : '#8a7a5c');
+  }
+  // 波打ち際（砂へ薄く上がってくる）
+  for (let i = 0; i < 3; i++) {
+    _c.globalAlpha = 0.5 - i * 0.13;
+    P(0, 162 + i * 2, 360, 2, '#dfeceb');
+    _c.globalAlpha = 1;
+  }
+
+  // 人物（小さく・後ろ姿・ひとり。顔は描かない。遠くを見て立っている）
+  const px = 156, py = 138;
+  person(px, py, 1.5, 'stand', '#33506b');
+  P(px + 4, py, 6, 5, PAL.hair);                                  // 後頭部（＝振り向いていない）
+  P(px + 4, py + 4, 6, 2, lit(PAL.hair, 1.3));                    // 襟足
+  P(px + 1, py + 7, 12, 1, lit('#33506b', 1.3));                  // 肩のライン（丸く見せる）
+  _c.globalAlpha = 0.28;                                          // 砂に落ちる影（長い＝朝）
+  P(px - 12, py + 26, 26, 3, '#6b5c40');
+  _c.globalAlpha = 1;
+  // 足元の濡れた砂の照り返し
+  _c.globalAlpha = 0.2; P(px + 1, py + 25, 12, 2, '#e6eeea'); _c.globalAlpha = 1;
+
+  // 全体をほんの少しだけ落とす（明るい絵のまま、白文字が乗る余地を作る）
+  _c.globalAlpha = 0.10; P(0, 0, 360, 90, '#0a1a2e'); _c.globalAlpha = 1;
+  scanlines(0, 0, 360, 200, 0.04);
+};

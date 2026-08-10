@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>artcheck — 村上宗嗣の12時間</title>
+<style>
+  body { background:#0d0f14; color:#e8e4d8; font-family:"Hiragino Kaku Gothic ProN",monospace; padding:16px; }
+  h1 { font-size:14px; color:#8792a6; font-weight:normal; margin-bottom:14px; }
+  .grid { display:flex; flex-wrap:wrap; gap:18px; }
+  .cell { }
+  .cell canvas { image-rendering:pixelated; width:360px; height:200px; border:2px solid #2a3140; display:block; }
+  .cell .k { font-size:12px; color:#f0c33c; margin:6px 0 2px; }
+  .cell .n { font-size:11px; color:#8792a6; }
+  .miss { color:#ff6b6b; }
+</style>
+</head>
+<body>
+<h1>_artcheck — #key1,key2 で絞り込み／引数なしで全部</h1>
+<div class="grid" id="g"></div>
+<script src="js/art.js?v=2"></script>
+<script src="js/scenes1.js?v=2"></script>
+<script src="js/scenes2.js?v=2"></script>
+<script src="js/scenes3.js?v=2"></script>
+<script src="js/scenes4.js?v=2"></script>
+<script>
+const NAMES = {
+  title_boy: 'タイトル前：ゲーム禁止の少年',
+  desk_dawn: 'AM5:55 夜明け前のデスク',
+  lp_page: '継承のセールスレター（文字だけ・大見出し＋本文）',
+  face_normal: '村上・通常', face_red: '村上・逆立ちのあと', face_breath: '村上・システマ呼吸',
+  face_tear: '村上・涙（E11大正解）',
+  phone_flip: 'E4 裏返しの携帯が光る',
+  server_room: 'E6 サーバー負荷90%', server_down: 'E6 落ちた',
+  letter_note: 'E3b 手紙と愛用のノート',
+  books: '幕間 高い教材とボロボロの七日間戦争',
+  result_bg: 'リザルト背景（18:00の窓）',
+  epilogue_sky: 'エピローグ 2026年',
+};
+const want = location.hash.slice(1).split(',').filter(Boolean);
+const keys = Object.keys(NAMES).filter(k => !want.length || want.includes(k));
+const cvs = [];
+for (const k of keys) {
+  const d = document.createElement('div'); d.className = 'cell';
+  const has = typeof ART[k] === 'function';
+  d.innerHTML = `<div class="k">${k} ${has?'':'<span class="miss">— 未実装</span>'}</div>
+    <div class="n">${NAMES[k]}</div>`;
+  const c = document.createElement('canvas'); c.width = 360; c.height = 200;
+  d.insertBefore(c, d.firstChild);
+  document.getElementById('g').appendChild(d);
+  if (has) cvs.push([c.getContext('2d'), ART[k]]);
+}
+function loop() {
+  for (const [ctx, fn] of cvs) {
+    useCtx(ctx);
+    ctx.clearRect(0,0,360,200);
+    try { fn(ctx); } catch(e) { ctx.fillStyle='#f00'; ctx.fillText(String(e).slice(0,40), 4, 12); }
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

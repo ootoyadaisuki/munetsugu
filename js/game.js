@@ -1,0 +1,618 @@
+// 『村上宗嗣の12時間』 game.js v5 — 12通のメルマガで継承を売る
+// 進行・経済・演出・セーブ。数値とテキストは data.js が正。
+
+/* ================= 経済（純関数・nodeテスト共用） =================
+   乱数ゼロ。同じ選択列は必ず同じ結果になる。
+   chosen = { rounds: [{b:'A', s:'A'}, ...], koneta: {K1:'B', K2:'B', K3:'B'} } */
+const Econ = {
+  pairClass(round, bIdx, sIdx) {
+    const b = round.bodies[bIdx], s = round.subjects[sIdx];
+    const bt = b.hiddenTone ? 'hype' : b.tone;   // R10-D: honestの顔をしたhype
+    const st = s.tone;
+    // R6/R10の特殊組（台本の明示指定が汎用規則より優先）
+    if (round.special === 'r6_combo' && s.t === 'A') {
+      if (b.t === 'A') return 'super';
+      if (b.t === 'B' || b.t === 'D') return 'tsuri';
+    }
+    if (round.special === 'r10_trap' && s.t === 'A' && b.t === 'D') return 'tsuri';
+    if (st === bt) return 'match';
+    if (st === 'honest' && (bt === 'hype' || bt === 'ego')) return 'tsuri';
+    if (st === 'hype' && (bt === 'honest' || bt === 'flat')) return 'katasuka';
+    return 'neutral';
+  },
+  simulate(chosen) {
+    const C = CONF;
+    let list = C.LIST0, buyers = 0, unsub = 0, sales = 0;
+    let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
+    let calm = 0, oishii = false, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
+    const log = [];
+    const konetaAfter = {}; KONETA.forEach(k => konetaAfter[k.after] = k);
+
+    ROUNDS.forEach((round, r) => {
+      const pick = chosen.rounds[r];
+      if (!pick) return;
+      const bIdx = 'ABCD'.indexOf(pick.b), sIdx = 'ABCD'.indexOf(pick.s);
+      const b = round.bodies[bIdx], s = round.subjects[sIdx];
+      let cls = this.pairClass(round, bIdx, sIdx);
+      const pair = cls === 'super' ? { conv: 1.40, unsub: 0.55 }
+        : cls === 'tsuri' ? C.PAIR.tsuri
+        : C.PAIR.katasuka === undefined ? C.PAIR.neutral
+        : C.PAIR[cls === 'match' ? 'match' : cls === 'katasuka' ? 'katasuka' : 'neutral'];
+      if (cls === 'tsuri') tsuriCnt++;
+      if (b.tone === 'ego') egoCnt++;
+
+      // 開封率
+      let open = C.SUBJ_OPEN[s.t] * (1 + stim * C.STIM_OPEN) * (1 - r * C.FATIGUE);
+      open = Math.min(0.9, Math.max(0.05, open));
+      // 成約率（成長は逓減系＝後半に爆発しない）
+      let conv = C.BODY_CONV[b.t] * pair.conv
+        * (1 + rikai / 220) * (1 + trust / 260) * (1 + expect / 240);
+      // ラウンド特殊
+      if (round.special === 'r11_recall') {
+        if (b.t === 'A') conv *= (rikai >= C.R11_RIKAI ? 1.50 : 0.90);
+        if (b.t === 'B') conv *= 0.55;          // 価格の不安は既に解けている＝空振り
+        if (b.t === 'C') conv *= 1.15;
+      }
+      let trueEnd = false;
+      if (round.special === 'r12_true_end' && b.t === 'D') {
+        if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; }
+        else conv *= 0.85;
+      }
+      // 解除率
+      let uRate = C.UNSUB_BASE[b.t] * pair.unsub * (1 + stim * C.STIM_UNSUB);
+      if (oishii) uRate *= C.OISHII_UNSUB_MULT;
+      if (trueEnd) uRate *= 0.5;
+
+      const dBuy = Math.round(list * open * conv);
+      let dUnsub = Math.round(list * uRate);
+      dUnsub = Math.min(dUnsub, Math.max(0, list - dBuy));   // リストは0未満にならない
+      list = list - dBuy - dUnsub;
+      buyers += dBuy; unsub += dUnsub; sales += dBuy * C.UNIT;
+
+      // 隠しパラメータ更新
+      const fx = C.FX[b.t];
+      trust += fx.trust + (s.tone === 'ego' ? C.EGO_TRUST : 0) + (cls === 'tsuri' ? -8 : 0);
+      rikai += fx.rikai + (cls === 'super' ? 3 : 0);
+      expect += fx.expect + (cls === 'tsuri' ? -10 : 0);
+      let dStim = fx.stim + C.SUBJ_STIM[s.t];
+      if (dStim > 0 && calm > 0) { calm--; dStim = 0; }      // システマ: 刺激上昇を1回打ち消す
+      stim = Math.max(0, stim + dStim);
+
+      log.push({ id: round.id, cls, open, conv, dBuy, dUnsub, list, sales, trueEnd,
+        bType: b.t, sType: s.t });
+
+      // ラウンド後の小ネタ
+      const k = konetaAfter[round.id];
+      if (k && chosen.koneta && chosen.koneta[k.id]) {
+        const good = k.choices.find(c => c.key === chosen.koneta[k.id]).good;
+        if (k.effect === 'calm' && good) { kizukai++; calm++; }
+        if (k.effect === 'calm' && !good) stim += 0.05;
+        if (k.effect === 'oishii' && !good) { list += C.OISHII_ADD; oishii = true; trust += C.OISHII_TRUST; badKoneta++; }
+        if (k.effect === 'kizukai' && good) kizukai++;
+        if (k.effect === 'kizukai' && !good) badKoneta++;
+      }
+    });
+
+    // 顧客満足（解除と信用から）
+    const satisfy = Math.max(0, Math.min(100,
+      Math.round(100 - (unsub / Math.max(1, buyers * 3 + unsub)) * 100 + Math.min(10, trust / 8))));
+    const win = sales > C.HISTORIC;
+    // 総合ランク: 表（史実超え）と裏（リストを焼かない）の両立
+    let rank;
+    if (win && unsub <= C.RANK_S.unsub && satisfy >= C.RANK_S.satisfy) rank = 'S';
+    else if (win && unsub <= C.RANK_A.unsub) rank = 'A';
+    else if (win) rank = 'B';
+    else if (sales >= 450000000) rank = 'C';
+    else rank = 'D';
+    const munedo = Math.min(100, Math.max(85, 100 - tsuriCnt * 3 - egoCnt * 2 - badKoneta + kizukai));
+    return { sales, buyers, unsub, list, trust, rikai, expect, stim, kizukai, satisfy,
+      win, rank, munedo, tsuriCnt, egoCnt, log };
+  },
+};
+
+if (typeof module !== 'undefined') { module.exports.Econ = Econ; }
+if (typeof document === 'undefined') { /* nodeテスト時はUI部を読まない */ } else {
+
+/* ================= UI ================= */
+const $ = s => document.querySelector(s);
+// 自動テスト: ?autotest[&policy=worst|hype] タイマー非依存で全編走行
+const FAST = location.search.includes('autotest');
+const POLICY = location.search.includes('policy=worst') ? 'worst'
+  : location.search.includes('policy=hype') ? 'hype' : 'best';
+const wait = ms => FAST ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
+const SAVE_KEY = 'munetsugu_save_v5';
+
+// 進行: opening → keisho → R1..R12（小ネタはラウンド直後に挟む）→ result → ranks → ending
+const FLOW = ['opening', 'keisho'];
+ROUNDS.forEach(r => { FLOW.push(r.id); const k = KONETA.find(x => x.after === r.id); if (k) FLOW.push(k.id); });
+FLOW.push('result', 'ranks', 'ending');
+
+let S = load() || freshState();
+function freshState(meta) {
+  return { beat: 0, rounds: [], koneta: {}, pending: null,
+    best: meta ? meta.best : null, clears: meta ? meta.clears : 0 };
+}
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
+function load() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+function chosen() { return { rounds: S.rounds, koneta: S.koneta }; }
+
+/* ---- 絵 ---- */
+let artKey = null, artRaf = null;
+function art(key) {
+  const el = $('#art');
+  if (!key || typeof ART === 'undefined' || typeof ART[key] !== 'function') {
+    artKey = null; el.style.display = 'none';
+    if (artRaf) { cancelAnimationFrame(artRaf); artRaf = null; }
+    return;
+  }
+  if (artKey === key) return;
+  artKey = key; el.style.display = 'block';
+  if (artRaf) return;
+  const ctx = el.getContext('2d');
+  const loop = () => {
+    artRaf = requestAnimationFrame(loop);
+    if (!artKey) return;
+    useCtx(ctx); ctx.clearRect(0, 0, 360, 200);
+    try { ART[artKey](ctx); } catch (e) {}
+  };
+  loop();
+}
+const BEAT_ART = { opening: 'title_boy', keisho: 'lp_page', R1: 'lp_page', R7: 'face_normal',
+  R12: 'face_normal', K1: 'desk', K2: 'phone_flip', K3: 'letter_note',
+  result: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
+function beatArt(beat) { return BEAT_ART[beat] || (beat.startsWith('R') ? 'desk' : null); }
+/* 絵の時刻を進める。ラウンド＝1時間なので、9:00→20:00と移り、
+   小ネタは直前のラウンドの時刻を引き継ぐ */
+function syncArtHour(beat) {
+  const round = ROUNDS.find(r => r.id === beat);
+  if (round) return setArtHour(parseInt(round.clock, 10));
+  const k = KONETA.find(x => x.id === beat);
+  if (k) {
+    const prev = ROUNDS.find(r => r.id === k.after);
+    if (prev) return setArtHour(parseInt(prev.clock, 10));
+  }
+  if (['result', 'ranks'].includes(beat)) setArtHour(18);
+}
+
+/* ---- HUD ---- */
+const stage = () => $('#stage');
+const choicesEl = () => $('#choices');
+function fmtYen(n) { return '¥' + Math.round(n).toLocaleString('ja-JP'); }
+/* HUD用: 1億2345万6789円 形式（ぱっと見で桁が分かる） */
+function fmtYenKanji(n) {
+  n = Math.max(0, Math.round(n));
+  const oku = Math.floor(n / 100000000), man = Math.floor((n % 100000000) / 10000), en = n % 10000;
+  let out = '';
+  if (oku > 0) out += oku.toLocaleString('ja-JP') + '億';
+  if (man > 0) out += man + '万';
+  if (en > 0 || out === '') out += en;
+  return out + '円';
+}
+function fmtNum(n) { return Math.round(n).toLocaleString('ja-JP'); }
+let HUD = { sales: 0, buyers: 0, list: CONF.LIST0, unsub: 0 };
+function paintHud(clock) {
+  const inGame = !['opening', 'keisho', 'ending'].includes(FLOW[S.beat]);
+  $('#hud').style.display = inGame ? '' : 'none';
+  if (!inGame) return;
+  if (clock) $('#hud-clock').textContent = clock;
+  $('#hud-sales').textContent = fmtYenKanji(HUD.sales);
+  const remain = CONF.HISTORIC - HUD.sales;
+  const rEl = $('#hud-remain');
+  rEl.textContent = remain > 0 ? `史実まで、あと ${fmtYenKanji(remain)}` : `史実超え +${fmtYenKanji(-remain)}`;
+  rEl.classList.toggle('gold', remain <= 20000000);
+  $('#hud-buyers').textContent = `購入者 ${fmtNum(HUD.buyers)}人`;
+  $('#hud-list').textContent = `見込み客 ${fmtNum(HUD.list)}人`;
+  $('#hud-unsub').textContent = `解除 ${fmtNum(HUD.unsub)}人`;
+}
+function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
+  const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
+  HUD = { sales: sim.sales, buyers: sim.buyers, list: sim.list, unsub: sim.unsub };
+}
+let tweenRaf = null;
+function tween(from, to, dur, onStep) {
+  return new Promise(res => {
+    if (FAST || from === to) { onStep(to); return res(); }
+    const t0 = performance.now();
+    const step = t => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      onStep(from + (to - from) * e);
+      if (p < 1) tweenRaf = requestAnimationFrame(step); else res();
+    };
+    tweenRaf = requestAnimationFrame(step);
+  });
+}
+
+/* ---- タイプライター＋タップ送り ---- */
+let typing = false, skipType = false;
+function showLines(lines, opts = {}) {
+  return new Promise(res => {
+    stage().innerHTML = '';
+    choicesEl().innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'textbox' + (opts.cls ? ' ' + opts.cls : '');
+    stage().appendChild(box);
+    if (FAST) {
+      for (const line of lines) {
+        const p = document.createElement('div');
+        p.className = 'tline' + (String(line).startsWith('※') ? ' tag' : '');
+        p.textContent = line || ' ';
+        box.appendChild(p);
+      }
+      return Promise.resolve().then(res);
+    }
+    let i = 0;
+    typing = true; skipType = false;
+    const nextLine = () => {
+      if (i >= lines.length) {
+        typing = false;
+        if (opts.noTap) return res();
+        tapToContinue(res);
+        return;
+      }
+      const line = lines[i++];
+      const p = document.createElement('div');
+      p.className = 'tline' + (String(line).startsWith('※') ? ' tag' : '');
+      box.appendChild(p);
+      typeText(p, String(line), () => setTimeout(nextLine, line === '' ? 60 : 160));
+    };
+    nextLine();
+  });
+}
+function typeText(el, text, done) {
+  let j = 0;
+  const tick = () => {
+    if (skipType) { el.textContent = text; return done(); }
+    el.textContent = text.slice(0, ++j);
+    if (j % 3 === 0) Sfx.play('talk');
+    if (j < text.length) setTimeout(tick, 26); else done();
+  };
+  if (text === '') { el.innerHTML = '&nbsp;'; return done(); }
+  tick();
+}
+function tapToContinue(res) {
+  if (FAST) return Promise.resolve().then(res);
+  const hint = document.createElement('div');
+  hint.className = 'taphint'; hint.textContent = '▼';
+  stage().appendChild(hint);
+  const h = () => { document.removeEventListener('pointerdown', h); hint.remove(); res(); };
+  setTimeout(() => document.addEventListener('pointerdown', h), 120);
+}
+document.addEventListener('pointerdown', () => { if (typing) skipType = true; });
+
+/* ---- 選択肢（表示順シャッフル） ---- */
+let seed = 20090928;
+function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+function shuffled(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function pickChoice(items, label, toText) {
+  return new Promise(res => {
+    if (FAST) {
+      let want = POLICY === 'best' ? 'A' : POLICY === 'hype' ? 'B' : 'D';
+      // 真エンドはautotestのbestで踏む（R12はD×D）
+      const isR12 = ROUNDS[11].bodies === items || ROUNDS[11].subjects === items;
+      if (POLICY === 'best' && isR12) want = 'D';
+      const it = items.find(x => (x.t || x.key) === want) || items[0];
+      console.log('[autotest]', label, (it.t || it.key));
+      return Promise.resolve().then(() => res(it));
+    }
+    choicesEl().innerHTML = '';
+    if (label) {
+      const lab = document.createElement('div');
+      lab.className = 'choice-label'; lab.textContent = label;
+      choicesEl().appendChild(lab);
+    }
+    shuffled(items).forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'choice';
+      b.textContent = toText(it);
+      b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
+      choicesEl().appendChild(b);
+    });
+  });
+}
+
+/* ================= ビート実装 ================= */
+async function runBeat() {
+  save();
+  const beat = FLOW[S.beat];
+  syncArtHour(beat);
+  art(beatArt(beat));
+  paintHud();
+  const round = ROUNDS.find(r => r.id === beat);
+  if (round) return runRound(round);
+  const koneta = KONETA.find(k => k.id === beat);
+  if (koneta) return runKoneta(koneta);
+  switch (beat) {
+    case 'opening': return runOpening();
+    case 'keisho': return runKeisho();
+    case 'result': return runResult();
+    case 'ranks': return runRanks();
+    case 'ending': return runEnding();
+  }
+}
+function next() { S.beat++; S.pending = null; save(); runBeat(); }
+
+async function runOpening() {
+  const O = TEXTS.opening;
+  await showLines([...O.dark1, O.darkTag], { cls: 'center dim' });
+  await showLines(O.dark2, { cls: 'center' });
+  stage().innerHTML = `<div class="title-wrap">
+    <div class="game-title">${O.title}</div>
+    <div class="game-sub">${O.sub}</div>
+    <button class="choice start">はじめる</button></div>`;
+  choicesEl().innerHTML = '';
+  if (FAST) await Promise.resolve();
+  else await new Promise(r => { stage().querySelector('.start').onclick = r; });
+  next();
+}
+
+async function runKeisho() {
+  await showLines(TEXTS.opening.keisho, { cls: 'dim' });
+  await showLines(TEXTS.opening.start);
+  next();
+}
+
+function composeMail(idx, subjText, withBody) {
+  // メルマガ作成画面。件名選択前は件名行に、選択後は本文の書き出し位置に
+  // カーソルが点滅する（＝ここから先を、選択肢が書く）
+  const mail = document.createElement('div');
+  mail.className = 'mail';
+  const subjRow = subjText
+    ? `<div class="mail-subj">件名: ${subjText}</div>`
+    : `<div class="mail-subj">件名: <span class="cursor">▎</span></div>`;
+  const bodyRow = withBody
+    ? `<div class="mail-text"><span class="cursor">▎</span></div>`
+    : '';
+  mail.innerHTML = `<div class="mail-bar">${TEXTS.send.compose} — 第${idx + 1}通</div>
+    <div class="mail-body">${subjRow}${bodyRow}</div>`;
+  return mail;
+}
+
+async function runRound(round) {
+  const idx = ROUNDS.indexOf(round);
+  syncHudTo(idx); paintHud(round.clock);
+  // 復帰: このラウンドが選択済みなら結果表示から
+  if (S.rounds[idx]) return showSendResult(round, idx);
+
+  // 1. 読者からの質問（独立ページ。無いラウンドは状況ナレーション）
+  if (round.question) {
+    await showLines([`【第${idx + 1}通】 ${round.clock}`, '', '読者から質問が届いた。', '',
+      `「${round.question}」`]);
+  } else {
+    await showLines([`【第${idx + 1}通】 ${round.clock}`, '', ...round.situation]);
+  }
+  // 2. 次の画面: メルマガ作成＋件名の選択肢
+  stage().innerHTML = ''; choicesEl().innerHTML = '';
+  stage().appendChild(composeMail(idx, null, false));
+  const subj = await pickChoice(round.subjects, '件名を選ぶ', s => `「${s.text}」`);
+  // 3. 本文の方針（作成画面に件名＋「村上です。」＋点滅カーソル）
+  stage().innerHTML = ''; stage().appendChild(composeMail(idx, subj.text, true));
+  const body = await pickChoice(round.bodies, null, b => b.text);
+
+  S.rounds[idx] = { b: body.t, s: subj.t };
+  S.pending = { round: round.id }; save();       // コミット（結果表示から再開）
+  showSendResult(round, idx);
+}
+
+async function showSendResult(round, idx) {
+  const simBefore = Econ.simulate({ rounds: S.rounds.slice(0, idx), koneta: S.koneta });
+  const simAfter = Econ.simulate({ rounds: S.rounds.slice(0, idx + 1), koneta: S.koneta });
+  const step = simAfter.log[simAfter.log.length - 1];
+  const pick = S.rounds[idx];
+
+  // 送信演出
+  stage().innerHTML = `<div class="send-wrap">
+    <div class="send-subject">「${round.subjects['ABCD'.indexOf(pick.s)].text}」</div>
+    <div class="send-state">送信中……</div>
+    <div class="send-open"></div><div class="send-buy"></div><div class="send-unsub"></div>
+    <div class="send-sales"></div></div>`;
+  choicesEl().innerHTML = '';
+  Sfx.play('ui');
+  await wait(700);
+  // 開封率
+  stage().querySelector('.send-state').textContent = '送信完了';
+  const openEl = stage().querySelector('.send-open');
+  await tween(0, step.open * 100, 900, v => { openEl.textContent = `開封率 ${v.toFixed(1)}%`; });
+  Sfx.play('correct');
+  await wait(300);
+  const buyEl = stage().querySelector('.send-buy');
+  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `購入 +${fmtNum(v)}人`; });
+  HUD.buyers = simAfter.buyers; paintHud();
+  await wait(step.dUnsub > 0 ? 900 : 200);
+  // 少し遅れて解除（画面を赤くする）
+  if (step.dUnsub > 0) {
+    Sfx.play('unsub');
+    document.body.classList.add('flash-red');
+    setTimeout(() => document.body.classList.remove('flash-red'), FAST ? 0 : 700);
+    const unEl = stage().querySelector('.send-unsub');
+    await tween(0, step.dUnsub, 800, v => { unEl.textContent = `解除 −${fmtNum(v)}人`; });
+  }
+  HUD.list = simAfter.list; HUD.unsub = simAfter.unsub; paintHud();
+  // 今回の売上（解除の下。1通ぶんの成果をここで締める）
+  const dSales = simAfter.sales - simBefore.sales;
+  const salesEl = stage().querySelector('.send-sales');
+  await wait(300);
+  Sfx.play('rank');
+  await tween(0, dSales, 900, v => { salesEl.textContent = `今回の売上 ${fmtYenKanji(v)}`; });
+  // そのあとで総売上に積み上がる（HUDのカウンターが猛烈に回る）
+  await wait(450);
+  Sfx.play('cash');
+  await tween(simBefore.sales, simAfter.sales, 1500, v => { HUD.sales = v; paintHud(); });
+  await wait(400);
+  await new Promise(r => tapToContinue(r));
+
+  // 顧客の声（購入者×3 → 未購入者×3 → 解除者×3 の3ページ）
+  const v = voicesFor(round, pick, step);
+  await showLines(['購入者の声', '', ...v.buy.map(t => `「${t}」`)]);
+  await showLines(['未購入者の声', '', ...v.stay.map(t => `「${t}」`)]);
+  if (v.out.length) await showLines(['解除した人の声', '', ...v.out.map(t => `「${t}」`)], { cls: 'unsub-voice' });
+  else await showLines(['解除した人の声', '', '——今回は、ほとんど出ていない。']);
+  next();
+}
+
+/* 声の組み立て: ラウンド固有の声が先頭、残りを共通プールで3本まで埋める。
+   プールの取り出し位置はラウンド番号でずらす＝12通のあいだ同じ声が並ばない */
+function voicesFor(round, pick, step) {
+  const v = round.voices || {};
+  const byType = v[pick.b] || {};
+  const rIdx = ROUNDS.indexOf(round);
+  const three = (specific, pool) => {
+    const arr = [];
+    if (specific) arr.push(specific);
+    const n = pool.length;
+    for (let i = 0; i < n; i++) {                     // ラウンドごとに開始位置をずらす
+      if (arr.length >= 3) break;
+      const t = pool[(rIdx * 2 + i) % n];
+      if (t && !arr.includes(t)) arr.push(t);
+    }
+    return arr.slice(0, 3);
+  };
+  const buy = step.trueEnd && v.trueEnd
+    ? three(v.trueEnd.buy, VOICE_POOL.buy[pick.b])
+    : three(byType.buy, VOICE_POOL.buy[pick.b]);
+  const stay = three(byType.stay, VOICE_POOL.stay[pick.b]);
+  let out = [];
+  if (step.dUnsub > 30) {
+    const first = (step.cls === 'tsuri' && v.tsuri) ? v.tsuri.out : byType.out;
+    out = three(first, VOICE_POOL.out[pick.b]).filter(Boolean);
+  }
+  return { buy, stay, out };
+}
+
+async function runKoneta(k) {
+  await showLines(k.intro);
+  const c = await new Promise(res => {
+    if (FAST) return Promise.resolve().then(() => res(k.choices.find(x => x.good) || k.choices[0]));
+    choicesEl().innerHTML = '';
+    shuffled(k.choices).forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.textContent = it.text;
+      b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
+      choicesEl().appendChild(b);
+    });
+  });
+  S.koneta[k.id] = c.key; save();
+  Sfx.play(c.good ? 'correct' : 'miss');
+  if (k.id === 'K1' && c.good) art('face_breath');
+  await showLines(c.reaction);
+  next();
+}
+
+async function runResult() {
+  const sim = Econ.simulate(chosen());
+  $('#hud-clock').textContent = '18:00';
+  // 最後の購入が入り、カウンター停止
+  stage().innerHTML = `<div class="lastcount"><div class="lc-clock">18:00</div><div class="lc-num"></div></div>`;
+  choicesEl().innerHTML = '';
+  if (!FAST) Sfx.rush(true, 100);
+  const numEl = stage().querySelector('.lc-num');
+  await tween(Math.max(0, sim.sales - 12000000), sim.sales, 2600, v => {
+    numEl.textContent = fmtYen(v); HUD.sales = v; paintHud();
+  });
+  Sfx.rush(false);
+  await wait(800);
+  const diff = sim.sales - CONF.HISTORIC;
+  Sfx.play(sim.win ? 'win' : 'lose');
+  stage().innerHTML = `<div class="result-wrap ${sim.win ? 'win' : 'lose'}">
+    <div class="res-num">${fmtYen(sim.sales)}</div>
+    <div class="res-label">史実 ${fmtYen(CONF.HISTORIC)}　${diff >= 0 ? '+' : '−'}${fmtYen(Math.abs(diff)).slice(1)}</div>
+    <div class="res-copy">${sim.win ? TEXTS.result.win : TEXTS.result.lose}</div></div>`;
+  await wait(900);
+  await new Promise(r => tapToContinue(r));
+  next();
+}
+
+async function runRanks() {
+  const sim = Econ.simulate(chosen());
+  const r = t => sim[t];
+  const copyRank = sim.tsuriCnt === 0 && sim.egoCnt === 0 ? 'S' : sim.tsuriCnt <= 1 ? 'A' : 'B';
+  const rikaiRank = sim.rikai >= 45 ? 'SS' : sim.rikai >= 30 ? 'S' : sim.rikai >= 15 ? 'A' : 'B';
+  const omoiRank = sim.trust >= 50 ? 'SS' : sim.trust >= 30 ? 'S' : sim.trust >= 10 ? 'A' : 'B';
+  const kizRank = sim.kizukai >= 3 ? 'S' : sim.kizukai === 2 ? 'A' : sim.kizukai === 1 ? 'B' : 'C';
+  const salesRank = sim.win ? 'S' : sim.sales >= 500000000 ? 'A' : sim.sales >= 400000000 ? 'B' : 'C';
+  const rows = [
+    ['売上', salesRank], ['コピー', copyRank], ['顧客理解', rikaiRank], ['思いやり', omoiRank],
+    ['気遣い', kizRank], ['メルマガ解除', `${fmtNum(sim.unsub)}人`], ['顧客満足', `${sim.satisfy}%`],
+  ];
+  stage().innerHTML = `<div class="ranks"><div class="res-label">RESULT</div>
+    <div class="rank-rows"></div>
+    <div class="munedo hidden">
+      <div class="sogo">総合　<span class="sogo-rank">${sim.rank}</span></div>
+      <div class="munedo-main">村上宗嗣度　${sim.munedo}%</div>
+      <div class="munedo-sub"></div></div></div>`;
+  choicesEl().innerHTML = '';
+  const rowsEl = stage().querySelector('.rank-rows');
+  for (const [k, v] of rows) {
+    const row = document.createElement('div');
+    row.className = 'rank-row';
+    row.innerHTML = `<span>${k}</span><span class="rank-v">${v}</span>`;
+    rowsEl.appendChild(row);
+    Sfx.play('rank');
+    await wait(380);
+  }
+  await wait(500);
+  const mune = stage().querySelector('.munedo');
+  mune.classList.remove('hidden');
+  // 「5億超えたのにBなの？」の一言
+  if (sim.rank === 'B') mune.querySelector('.munedo-sub').textContent = TEXTS.result.rankB_note;
+  else if (sim.rank === 'S') mune.querySelector('.munedo-sub').textContent = '——リストを焼かず、記録を超えました。';
+  Sfx.play(sim.rank === 'S' ? 'win' : 'ui');
+  if (!S.best || 'SABCD'.indexOf(sim.rank) < 'SABCD'.indexOf(S.best)) S.best = sim.rank;
+  save();
+  await new Promise(r => tapToContinue(r));
+  next();
+}
+
+async function runEnding() {
+  const pick = await new Promise(res => {
+    stage().innerHTML = `<div class="retry-q">${TEXTS.ending.retry}</div>`;
+    choicesEl().innerHTML = '';
+    if (FAST) return Promise.resolve().then(() => res(1));
+    [TEXTS.ending.yes, TEXTS.ending.no].forEach((t, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice'; b.textContent = t;
+      b.onclick = () => res(i);
+      choicesEl().appendChild(b);
+    });
+  });
+  if (pick === 0) {   // YES: 周回データのみ引き継いでR1へ
+    const meta = { best: S.best, clears: S.clears };
+    S = freshState(meta); S.beat = FLOW.indexOf('R1');
+    save(); return runBeat();
+  }
+  // NO: 暗転 → 過去の村上の声 → GAME CLEAR
+  art(null);
+  choicesEl().innerHTML = '';
+  stage().innerHTML = '';
+  await wait(900);
+  await showLines([TEXTS.ending.last], { cls: 'center dim', noTap: true });
+  await wait(1400);
+  S.clears++; save();
+  Sfx.play('clear');
+  if (FAST) { window.__cleared = true; console.log('[autotest] __CLEAR__'); }
+  art('epilogue_sky');
+  stage().innerHTML = `<div class="clear-wrap"><div class="game-clear">${TEXTS.ending.clear}</div>
+    <div class="shime">「よっ」</div><div class="shime big">メンソーレ。</div></div>`;
+}
+
+/* ---- 起動 ---- */
+window.addEventListener('load', () => {
+  Sfx.init();
+  if (location.search.includes('reset')) { localStorage.removeItem(SAVE_KEY); S = freshState(); }
+  const jm = location.search.match(/jump=([A-Za-z0-9]+)/);
+  if (jm && FLOW.includes(jm[1])) {
+    S = freshState();
+    const idx = FLOW.indexOf(jm[1]);
+    // 直行: それまでのラウンドは全A×A・小ネタは全good で埋める
+    for (let i = 0; i < ROUNDS.length; i++) {
+      if (FLOW.indexOf(ROUNDS[i].id) < idx) S.rounds[i] = { b: 'A', s: 'A' };
+    }
+    KONETA.forEach(k => { if (FLOW.indexOf(k.id) < idx) S.koneta[k.id] = k.choices.find(c => c.good).key; });
+    S.beat = idx;
+  }
+  runBeat();
+});
+}
