@@ -660,37 +660,52 @@ async function runRanks() {
   next();
 }
 
+/* 史実 5億6490万円を超えたときだけ GAME CLEAR。
+   超えていなければ記録は破られていない＝もう一度挑戦してもらう */
 async function runEnding() {
-  const pick = await new Promise(res => {
-    stage().innerHTML = `<div class="retry-q">${TEXTS.ending.retry}</div>`;
+  const sim = Econ.simulate(chosen());
+  const E = TEXTS.ending;
+  choicesEl().innerHTML = '';
+  if (sim.win) {
+    S.clears++; save();
+    Sfx.play('clear');
+    if (FAST) { window.__cleared = true; console.log('[autotest] __CLEAR__'); }
+    art('epilogue_sky');
+    stage().innerHTML = `<div class="clear-wrap">
+      <div class="game-clear">${E.clear}</div>
+      <div class="clear-sub">${E.clearSub}</div></div>`;
+    await wait(1200);
+    await new Promise(r => tapToContinue(r));
+    // 行動することについて、本人の言葉で締める
+    for (const page of E.message) await showLines(page, { cls: 'center' });
+    stage().innerHTML = `<div class="clear-wrap">
+      <div class="shime">${E.shime[0]}</div>
+      <div class="shime big">${E.shime[1]}</div></div>`;
+    await wait(900);
+  } else {
+    art('result_bg');
+    Sfx.play('lose');
+    stage().innerHTML = `<div class="clear-wrap">
+      <div class="game-over">${E.notYet}</div>
+      <div class="notyet-lines">${E.notYetLines.filter(Boolean).join('<br>')}</div>
+      <div class="clear-sub">${E.notYetSub}</div></div>`;
+    await wait(1400);
+  }
+
+  if (FAST) return;
+  await new Promise(res => {
     choicesEl().innerHTML = '';
-    if (FAST) return Promise.resolve().then(() => res(1));
-    [TEXTS.ending.yes, TEXTS.ending.no].forEach((t, i) => {
-      const b = document.createElement('button');
-      b.className = 'choice'; b.textContent = t;
-      b.onclick = () => res(i);
-      choicesEl().appendChild(b);
-    });
+    const b = document.createElement('button');
+    b.className = 'choice next-btn';
+    b.textContent = E.toTop;
+    b.onclick = res;
+    choicesEl().appendChild(b);
     guardTaps();
   });
-  if (pick === 0) {   // YES: 周回データのみ引き継いでR1へ
-    const meta = { best: S.best, clears: S.clears };
-    S = freshState(meta); S.beat = FLOW.indexOf('R1');
-    save(); return runBeat();
-  }
-  // NO: 暗転 → 過去の村上の声 → GAME CLEAR
-  art(null);
-  choicesEl().innerHTML = '';
-  stage().innerHTML = '';
-  await wait(900);
-  await showLines([TEXTS.ending.last], { cls: 'center dim', noTap: true });
-  await wait(1400);
-  S.clears++; save();
-  Sfx.play('clear');
-  if (FAST) { window.__cleared = true; console.log('[autotest] __CLEAR__'); }
-  art('epilogue_sky');
-  stage().innerHTML = `<div class="clear-wrap"><div class="game-clear">${TEXTS.ending.clear}</div>
-    <div class="shime">「よっ」</div><div class="shime big">メンソーレ。</div></div>`;
+  // 周回データ（最高ランク・クリア回数）だけ引き継いでタイトルへ
+  const meta = { best: S.best, clears: S.clears };
+  S = freshState(meta);
+  save(); runBeat();
 }
 
 /* ---- 起動 ---- */
