@@ -453,7 +453,7 @@ const KONETA = [
 
 const TEXTS = {
   opening: {
-    title: '村上宗嗣の12時間', sub: '― 5億6490万円を超えろ ―',
+    title: '村上宗嗣の12時間', sub: '〜12時間で5億を売れ〜',
     next: '次へ',
     /* 継承の説明。1ページずつ「次へ」で送る。一人称は「俺」 */
     keisho: [
