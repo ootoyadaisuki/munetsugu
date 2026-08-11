@@ -200,8 +200,19 @@ const $ = s => document.querySelector(s);
 const FAST = location.search.includes('autotest');
 const POLICY = location.search.includes('policy=worst') ? 'worst'
   : location.search.includes('policy=hype') ? 'hype' : 'best';
-const wait = ms => FAST ? Promise.resolve() : new Promise(r => setTimeout(r, ms));
 const SAVE_KEY = 'munetsugu_save_v5';
+
+/* 周回の世代。タイトルへ戻るたびに +1 する。
+   古い周回が待っている await（タップ送り・選択待ち・演出待ち）は、
+   世代が変わると二度と解決しない＝そこで永久に止まる。
+   これが無いと「はじめから」を選んだあと、前の周回に残っていたタップ待ちが
+   最初のタップで復活して、続きから再開したように見える */
+let GEN = 0;
+function gate(fn) {
+  const g = GEN;
+  return new Promise(res => fn(v => { if (g === GEN) res(v); }, () => g === GEN));
+}
+const wait = ms => FAST ? gate(r => r()) : gate(r => setTimeout(r, ms));
 
 // 進行: opening → keisho → R1..R12（小ネタはラウンド直後に挟む）→ result → ranks → ending
 const FLOW = ['opening', 'keisho'];
@@ -346,7 +357,7 @@ function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの�
 }
 let tweenRaf = null;
 function tween(from, to, dur, onStep) {
-  return new Promise(res => {
+  return gate(res => {
     if (FAST || from === to) { onStep(to); return res(); }
     const t0 = performance.now();
     const step = t => {
@@ -361,7 +372,7 @@ function tween(from, to, dur, onStep) {
 /* ---- タイプライター＋タップ送り ---- */
 let typing = false, skipType = false;
 function showLines(lines, opts = {}) {
-  return new Promise(res => {
+  return gate((res, alive) => {
     stage().innerHTML = '';
     choicesEl().innerHTML = '';
     const box = document.createElement('div');
@@ -379,6 +390,7 @@ function showLines(lines, opts = {}) {
     let i = 0;
     typing = true; skipType = false;
     const nextLine = () => {
+      if (!alive()) return;                  // 前の周回の続きは、ここで捨てる
       if (i >= lines.length) {
         typing = false;
         if (opts.noTap) return res();
@@ -442,7 +454,7 @@ function guardTaps() {
 }
 const REDO = { redo: true };
 function pickChoice(items, label, toText, opts = {}) {
-  return new Promise(res => {
+  return gate(res => {
     if (FAST) {
       let want = POLICY === 'best' ? 'A' : POLICY === 'hype' ? 'B' : 'D';
       // 真エンドはautotestのbestで踏む（R12はD×D）
@@ -508,6 +520,9 @@ async function runOpening() { return showTitle(); }
    メニューから呼ばれたときもセーブは消さない＝いつでも続きに戻れる */
 async function showTitle() {
   const O = TEXTS.opening;
+  /* ここで前の周回を打ち切る。タイトルに戻った時点で、
+     途中のラウンドが待っていたタップ・選択は無効になる */
+  GEN++;
   atTitle = true;
   setArtHour(6); art('face_normal'); paintHud();
   stage().innerHTML = `<div class="title-wrap">
@@ -515,7 +530,7 @@ async function showTitle() {
     <div class="game-sub">${O.sub}</div></div>`;
   choicesEl().innerHTML = '';
   const canContinue = S.beat > 1 && FLOW[S.beat];
-  const pick = await new Promise(res => {
+  const pick = await gate(res => {
     if (FAST) return Promise.resolve().then(() => res('new'));
     const mk = (label, act) => {
       const b = document.createElement('button');
@@ -560,7 +575,7 @@ async function runKeisho() {
   for (const page of TEXTS.opening.keisho) {
     await showLines(page, { cls: 'dim', noTap: true });
     if (FAST) continue;
-    await new Promise(res => {
+    await gate(res => {
       choicesEl().innerHTML = '';
       const b = document.createElement('button');
       b.className = 'choice next-btn';
@@ -815,7 +830,7 @@ function mentalTag(d) { return statTag([['メンタル', d, 'g-mental']]); }
 
 /* 小ネタ。1つ5〜15秒で終わらせる。続きの選択（then）を持つものだけ2段になる */
 function konetaPick(list) {
-  return new Promise(res => {
+  return gate(res => {
     if (FAST) return Promise.resolve().then(() => res(list.find(x => x.good) || list[0]));
     choicesEl().innerHTML = '';
     shuffled(list).forEach(it => {
@@ -1006,7 +1021,7 @@ async function runEnding() {
   }
 
   if (FAST) return;
-  await new Promise(res => {
+  await gate(res => {
     choicesEl().innerHTML = '';
     const b = document.createElement('button');
     b.className = 'choice next-btn top-btn';
