@@ -42,16 +42,12 @@
     overflow: hidden; }
   .gauge.draining { background: var(--red); }
   #gauge-fill { height: 100%; width: 100%; background: #4d8ec4; }
-  /* 史実 5億6490万円 への到達度 */
-  #gauge-goal { background: #2a2416; }
-  #goal-fill { height: 100%; width: 0; background: var(--gold); }
-  #gauge-goal.done #goal-fill { background: var(--green); }
   /* メンタル＝自分を焼いたか。見込み客ゲージと対になる */
   #gauge-mental { background: #7a2f2f; }
   #mental-fill { height: 100%; width: 100%; background: var(--green); }
-  #hud-mental { min-width: 34px; text-align: right; }
-  /* 信用と顧客理解。この2つがアップセル＝売上の9割を動かす */
-  .hud-pair { gap: 6px; }
+  /* メンタル・信用・顧客理解を1行に。この3つがアップセル＝売上の9割を動かす */
+  .hud-trio { gap: 5px; }
+  .hud-trio .gauge { min-width: 34px; }
   #gauge-trust, #gauge-rikai { background: #1b2330; }
   #trust-fill { height: 100%; width: 0; background: #6bb8ff; }
   #rikai-fill { height: 100%; width: 0; background: #b58ce0; }
@@ -99,7 +95,7 @@
   .sogo-rank { font-size: 30px; font-weight: bold; color: var(--gold); }
 
   #artwrap { position: relative; flex-shrink: 0; display: none; }
-  #art { width: 100%; height: auto; max-height: 21vh; object-fit: contain;
+  #art { width: 100%; height: auto; max-height: 24vh; object-fit: contain;
     image-rendering: pixelated; display: block; border-bottom: 2px solid var(--line);
     background: #0b0e16; }
   #stage { flex: 0 1 auto; padding: 14px 16px; overflow-y: auto; position: relative; min-height: 0; }
@@ -224,24 +220,17 @@
           <span class="hud-sales-label">総売上</span>
           <span id="hud-sales">0円</span>
         </span>
+        <span id="hud-remain">史実まで、あと 5億6490万円</span>
       </span>
-    </div>
-    <div class="hud-gauge-row">
-      <span>史実の差</span>
-      <div class="gauge" id="gauge-goal"><div id="goal-fill"></div></div>
-      <span id="hud-remain">あと 5億6490万円</span>
     </div>
     <div class="hud-gauge-row">
       <span>見込み客</span>
       <div class="gauge" id="gauge-list"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
     </div>
-    <div class="hud-gauge-row">
+    <div class="hud-gauge-row hud-trio">
       <span>メンタル</span>
       <div class="gauge" id="gauge-mental"><div id="mental-fill"></div></div>
-      <span id="hud-mental">100%</span>
-    </div>
-    <div class="hud-gauge-row hud-pair">
       <span>信用</span>
       <div class="gauge" id="gauge-trust"><div id="trust-fill"></div></div>
       <span>顧客理解</span>

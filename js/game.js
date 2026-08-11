@@ -307,14 +307,10 @@ function paintHud(clock) {
     cEl.classList.toggle('urgent', 18 - parseInt(clock, 10) <= 3);
   }
   $('#hud-sales').textContent = fmtYenKanji(HUD.sales);
-  // 史実（5億6490万円）への到達度をゲージに
   const remain = CONF.HISTORIC - HUD.sales;
   const rEl = $('#hud-remain');
-  rEl.textContent = remain > 0 ? `あと ${fmtYenKanji(remain)}` : `超え +${fmtYenKanji(-remain)}`;
+  rEl.textContent = remain > 0 ? `史実まで、あと ${fmtYenKanji(remain)}` : `史実超え +${fmtYenKanji(-remain)}`;
   rEl.classList.toggle('gold', remain <= 20000000);
-  const gp = Math.min(100, HUD.sales / CONF.HISTORIC * 100);
-  $('#goal-fill').style.width = gp + '%';
-  $('#gauge-goal').classList.toggle('done', remain <= 0);
   $('#hud-buyers').textContent = `フロント ${fmtNum(HUD.buyers)}本`;
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
@@ -322,10 +318,8 @@ function paintHud(clock) {
   const cap = CONF.LIST0;
   $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
   // 緑が残りのメンタル。削れたぶんは見込み客ゲージと同じく赤で残る
-  const m = Math.max(0, Math.min(100, HUD.mental));
-  $('#mental-fill').style.width = m + '%';
-  $('#hud-mental').textContent = Math.round(m) + '%';
   const pct = (v, max) => Math.max(0, Math.min(100, v / max * 100)) + '%';
+  $('#mental-fill').style.width = pct(HUD.mental, 100);
   $('#trust-fill').style.width = pct(HUD.trust, CONF.TRUST_MAX);
   $('#rikai-fill').style.width = pct(HUD.rikai, CONF.RIKAI_MAX);
 }
