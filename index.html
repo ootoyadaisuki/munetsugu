@@ -130,6 +130,10 @@
   .choice.redo { background: none; border-style: dashed; color: var(--dim);
     font-size: 13px; text-align: center; padding: 7px; }
   .choice.next-btn { text-align: center; width: 160px; align-self: center; }
+  /* 締めの画面のボタン。ここだけは見落とされないように金枠で立てる */
+  .choice.top-btn { width: 200px; border-color: var(--gold); color: var(--gold);
+    font-weight: bold; padding: 13px; margin-top: 12px; }
+  .choice.top-btn:active { background: var(--gold); color: var(--panel); }
 
   .title-wrap { text-align: center; margin-top: 4vh; display: flex; flex-direction: column; gap: 18px; align-items: center; }
   .game-title { font-size: 30px; font-weight: bold; letter-spacing: 4px; color: var(--gold);

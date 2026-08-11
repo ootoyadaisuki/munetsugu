@@ -951,7 +951,7 @@ async function runEnding() {
   await new Promise(res => {
     choicesEl().innerHTML = '';
     const b = document.createElement('button');
-    b.className = 'choice next-btn';
+    b.className = 'choice next-btn top-btn';
     b.textContent = E.toTop;
     b.onclick = res;
     choicesEl().appendChild(b);
