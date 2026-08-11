@@ -204,6 +204,16 @@
   .munedo-note { color: var(--dim); font-size: 11px; line-height: 1.6; margin-top: 5px; }
   .lastword { margin-top: 18px; font-size: 16px; }
 
+  /* タイトルの隅。売り込まない＝小さく、金でなく灰で置く */
+  .title-lp { background: none; border: none; color: var(--dim); font-family: inherit;
+    font-size: 11px; letter-spacing: 1px; margin-top: 22px; cursor: pointer;
+    border-bottom: 1px solid var(--line); padding: 2px 0; }
+  .title-lp:active { color: var(--gold); }
+  /* エンディング後の橋渡し。金で立てる（.lp-btn は継承LPの絵で使用済みなので別名） */
+  .choice.contena-btn { width: 280px; border-color: var(--gold); color: var(--gold);
+    font-weight: bold; padding: 13px; }
+  .choice.contena-btn:active { background: var(--gold); color: var(--panel); }
+  .contena-note { color: var(--dim); font-size: 11px; text-align: center; margin: -2px 0 8px; }
   .epi-words { text-align: center; margin-top: 10vh; font-size: 18px; letter-spacing: 2px; line-height: 2.2; }
 
   /* iPhone 13 mini などの短い画面。本文の型は2行になるので、選択肢が4つ並ぶと
@@ -285,13 +295,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608112101"></script>
-<script src="js/art.js?v=202608112101"></script>
-<script src="js/scenes1.js?v=202608112101"></script>
-<script src="js/scenes2.js?v=202608112101"></script>
-<script src="js/scenes3.js?v=202608112101"></script>
-<script src="js/scenes4.js?v=202608112101"></script>
-<script src="js/sfx.js?v=202608112101"></script>
-<script src="js/game.js?v=202608112101"></script>
+<script src="js/data.js?v=202608120107"></script>
+<script src="js/art.js?v=202608120107"></script>
+<script src="js/scenes1.js?v=202608120107"></script>
+<script src="js/scenes2.js?v=202608120107"></script>
+<script src="js/scenes3.js?v=202608120107"></script>
+<script src="js/scenes4.js?v=202608120107"></script>
+<script src="js/sfx.js?v=202608120107"></script>
+<script src="js/game.js?v=202608120107"></script>
 </body>
 </html>

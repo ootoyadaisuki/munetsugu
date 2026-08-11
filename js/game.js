@@ -540,8 +540,10 @@ async function showTitle() {
   setArtHour(6); art('face_normal'); paintHud();
   stage().innerHTML = `<div class="title-wrap">
     <div class="game-title">${O.title}</div>
-    <div class="game-sub">${O.sub}</div></div>`;
+    <div class="game-sub">${O.sub}</div>
+    <button class="title-lp">${O.titleLp}</button></div>`;
   choicesEl().innerHTML = '';
+  stage().querySelector('.title-lp').onclick = e => { e.stopPropagation(); Sfx.play('ui'); openLp(); };
   const canContinue = S.beat > 1 && FLOW[S.beat];
   const pick = await gate(res => {
     if (FAST) return Promise.resolve().then(() => res('new'));
@@ -565,13 +567,17 @@ async function showTitle() {
   runBeat();
 }
 
-/* 右上の☰。いまはトップに戻るだけ。セーブは残るので、つづきからで戻れる */
+/* 案内ページ（LP）は必ず別タブ。ゲームを閉じさせない */
+function openLp() { window.open(CONF.LP_URL, '_blank', 'noopener'); }
+
+/* 右上の☰。トップに戻る／案内ページを開く。セーブは残るので、つづきからで戻れる */
 function openMenu() {
   if (document.querySelector('.menu-pop')) return;
   const O = TEXTS.opening;
   const pop = document.createElement('div');
   pop.className = 'menu-pop';
   pop.innerHTML = `<button class="choice" data-a="top">${O.menuTop}</button>
+    <button class="choice" data-a="lp">${O.menuLp}</button>
     <button class="choice" data-a="close">${O.menuClose}</button>`;
   document.querySelector('#app').appendChild(pop);
   pop.onclick = e => {
@@ -580,6 +586,7 @@ function openMenu() {
     pop.remove();
     Sfx.play('ui');
     if (a === 'top') { save(); showTitle(); }
+    if (a === 'lp') openLp();
   };
 }
 
@@ -1036,6 +1043,28 @@ async function runEnding() {
   }
 
   if (FAST) return;
+  /* 12時間を遊びきった直後だけ、案内ページへの橋を架ける。
+     案内の中身はLP側が持っているので、ここでは「渡す」だけに徹する */
+  await new Promise(r => tapToContinue(r));
+  art('epilogue_sky');
+  await showLines(TEXTS.lp.lines, { cls: 'center', noTap: true });
+  await gate(res => {
+    choicesEl().innerHTML = '';
+    const lp = document.createElement('button');
+    lp.className = 'choice next-btn contena-btn';
+    lp.textContent = TEXTS.lp.btn;
+    lp.onclick = () => { Sfx.play('ui'); openLp(); };
+    choicesEl().appendChild(lp);
+    const note = document.createElement('div');
+    note.className = 'contena-note'; note.textContent = TEXTS.lp.note;
+    choicesEl().appendChild(note);
+    const b = document.createElement('button');
+    b.className = 'choice next-btn top-btn';
+    b.textContent = E.toTop;
+    b.onclick = res;
+    choicesEl().appendChild(b);
+    guardTaps();
+  });
   await gate(res => {
     choicesEl().innerHTML = '';
     const b = document.createElement('button');
