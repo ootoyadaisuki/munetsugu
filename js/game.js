@@ -333,7 +333,7 @@ function showLines(lines, opts = {}) {
       const p = document.createElement('div');
       p.className = 'tline' + (String(line).startsWith('※') ? ' tag' : '');
       box.appendChild(p);
-      typeText(p, String(line), () => setTimeout(nextLine, line === '' ? 60 : 160));
+      typeText(p, String(line), () => setTimeout(nextLine, line === '' ? 40 : 110));
     };
     nextLine();
   });
@@ -344,7 +344,7 @@ function typeText(el, text, done) {
     if (skipType) { el.textContent = text; return done(); }
     el.textContent = text.slice(0, ++j);
     if (j % 3 === 0) Sfx.play('talk');
-    if (j < text.length) setTimeout(tick, 26); else done();
+    if (j < text.length) setTimeout(tick, 20); else done();
   };
   if (text === '') { el.innerHTML = '&nbsp;'; return done(); }
   tick();
