@@ -1050,18 +1050,22 @@ async function runEnding() {
   /* 12時間を遊びきった直後だけ、案内ページへの橋を架ける。
      案内の中身はLP側が持っているので、ここでは「渡す」だけに徹する */
   await new Promise(r => tapToContinue(r));
-  art('epilogue_sky');
-  await showLines(TEXTS.lp.lines, { cls: 'center', noTap: true });
+  /* 案内は「ゲームの画面」ではなく、挟み込まれた紙のチラシとして出す。
+     配色・明朝・マーカーはLP（contena.co.jp/yourstory）に合わせてある */
+  const L = TEXTS.lp;
+  art(null);
+  stage().innerHTML = `<div class="contena-card">
+    <div class="cc-lead">${L.lead}</div>
+    <div class="cc-head">${L.head.join('<br>')}</div>
+    <div class="cc-uses">${L.uses.map(u => `<span>${u}</span>`).join('')}</div>
+    <div class="cc-body">${L.body.join('<br>')}<br>
+      <b class="cc-mk">${L.body2[0]}</b>${L.body2[1]}</div>
+    <button class="cc-btn">${L.btn}</button>
+    <div class="cc-note">${L.note}</div></div>`;
+  stage().querySelector('.cc-btn').onclick = () => { Sfx.play('ui'); openLp(); };
+  Sfx.play('rank');
   await gate(res => {
     choicesEl().innerHTML = '';
-    const lp = document.createElement('button');
-    lp.className = 'choice next-btn contena-btn';
-    lp.textContent = TEXTS.lp.btn;
-    lp.onclick = () => { Sfx.play('ui'); openLp(); };
-    choicesEl().appendChild(lp);
-    const note = document.createElement('div');
-    note.className = 'contena-note'; note.textContent = TEXTS.lp.note;
-    choicesEl().appendChild(note);
     const b = document.createElement('button');
     b.className = 'choice next-btn top-btn';
     b.textContent = E.toTop;

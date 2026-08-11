@@ -209,11 +209,27 @@
     font-family: inherit; font-size: 12px; letter-spacing: 1px; margin-top: 14px;
     cursor: pointer; padding: 8px 14px; border-radius: 2px; align-self: center; }
   .title-lp:active { border-color: var(--gold); color: var(--gold); }
-  /* エンディング後の橋渡し。金で立てる（.lp-btn は継承LPの絵で使用済みなので別名） */
-  .choice.contena-btn { width: 280px; border-color: var(--gold); color: var(--gold);
-    font-weight: bold; padding: 13px; }
-  .choice.contena-btn:active { background: var(--gold); color: var(--panel); }
-  .contena-note { color: var(--dim); font-size: 11px; text-align: center; margin: -2px 0 8px; }
+  /* エンディング後の案内。ゲームの画面ではなく「挟み込まれた紙」に見せる。
+     配色・明朝・マーカーは案内ページ側のデザインを踏襲 */
+  .contena-card { background: #fbf7ef; color: #16130f; border: 1px solid #e0d6c2;
+    padding: 20px 18px 16px; text-align: center; image-rendering: auto;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif; }
+  .cc-lead { font-size: 12px; color: #8f0a20; letter-spacing: 2px; }
+  .cc-head { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    font-size: 21px; font-weight: bold; line-height: 1.55; margin-top: 8px; }
+  .cc-uses { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 12px; }
+  .cc-uses span { border: 1px solid #e0d6c2; background: #f4ecdd; color: #4a423a;
+    font-size: 12px; padding: 5px 9px; }
+  .cc-body { font-size: 13px; line-height: 1.85; color: #4a423a; }
+  /* LPと同じ黄色のマーカー */
+  .cc-mk { color: #16130f; background: linear-gradient(transparent 58%, #ffe95c 58%,
+    #ffe95c 94%, transparent 94%); font-weight: bold; }
+  .cc-btn { display: block; width: 100%; margin: 16px 0 0; padding: 14px;
+    background: #c8102e; color: #fff; border: none; border-radius: 3px;
+    font-family: inherit; font-size: 16px; font-weight: bold; letter-spacing: 1px;
+    cursor: pointer; box-shadow: 0 3px 0 #8f0a20; }
+  .cc-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #8f0a20; }
+  .cc-note { color: #8a8378; font-size: 11px; margin-top: 7px; }
   .epi-words { text-align: center; margin-top: 10vh; font-size: 18px; letter-spacing: 2px; line-height: 2.2; }
 
   /* iPhone 13 mini などの短い画面。本文の型は2行になるので、選択肢が4つ並ぶと
@@ -295,13 +311,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608120111"></script>
-<script src="js/art.js?v=202608120111"></script>
-<script src="js/scenes1.js?v=202608120111"></script>
-<script src="js/scenes2.js?v=202608120111"></script>
-<script src="js/scenes3.js?v=202608120111"></script>
-<script src="js/scenes4.js?v=202608120111"></script>
-<script src="js/sfx.js?v=202608120111"></script>
-<script src="js/game.js?v=202608120111"></script>
+<script src="js/data.js?v=202608120121"></script>
+<script src="js/art.js?v=202608120121"></script>
+<script src="js/scenes1.js?v=202608120121"></script>
+<script src="js/scenes2.js?v=202608120121"></script>
+<script src="js/scenes3.js?v=202608120121"></script>
+<script src="js/scenes4.js?v=202608120121"></script>
+<script src="js/sfx.js?v=202608120121"></script>
+<script src="js/game.js?v=202608120121"></script>
 </body>
 </html>
