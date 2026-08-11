@@ -265,6 +265,8 @@ const PACE = (() => {
 })();
 /* 顔はメンタルで決まる。売上ペースは「圧勝」の判定にだけ使う。
    ＝リストを焼いて売上だけ出ていても、顔は曇る */
+// 小ネタ専用の顔（表情の自動更新から守る）
+const EVENT_FACES = ['face_red', 'face_breath', 'face_tear'];
 function moodKey() {
   const done = S.rounds.filter(Boolean).length;
   if (!done) return 'face_calm';
@@ -335,7 +337,10 @@ function paintHud(clock) {
   $('#timebar').style.display = inGame ? '' : 'none';
   $('#menu-btn').style.display = inGame ? '' : 'none';
   if (!inGame) return;
-  if (artKey && artKey.startsWith('face_') && artKey !== 'face_normal') art(moodKey());
+  /* 小ネタで意図して出した顔（逆立ちで真っ赤・システマの呼吸・涙）は、
+     売上に連動する表情で上書きしない。せっかく出しても一瞬で消えてしまうため */
+  if (artKey && artKey.startsWith('face_') && artKey !== 'face_normal'
+    && !EVENT_FACES.includes(artKey)) art(moodKey());
   if (clock) {
     const cEl = $('#hud-clock');
     cEl.textContent = remainLabel(clock);
