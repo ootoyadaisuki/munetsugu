@@ -1058,8 +1058,8 @@ async function runEnding() {
     <div class="cc-lead">${L.lead}</div>
     <div class="cc-head">${L.head.join('<br>')}</div>
     <div class="cc-uses">${L.uses.map(u => `<span>${u}</span>`).join('')}</div>
-    <div class="cc-body">${L.body.join('<br>')}<br>
-      <b class="cc-mk">${L.body2[0]}</b>${L.body2[1]}</div>
+    <div class="cc-body">${L.body.join('<br>')}
+      <span class="cc-1line"><b class="cc-mk">${L.body2[0]}</b>${L.body2[1]}</span></div>
     <button class="cc-btn">${L.btn}</button>
     <div class="cc-note">${L.note}</div></div>`;
   stage().querySelector('.cc-btn').onclick = () => { Sfx.play('ui'); openLp(); };

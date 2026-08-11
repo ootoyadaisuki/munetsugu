@@ -222,6 +222,9 @@
   .cc-uses span { border: 1px solid #e0d6c2; background: #f4ecdd; color: #4a423a;
     font-size: 12px; padding: 6px 4px; text-align: center; }
   .cc-body { font-size: 13px; line-height: 1.85; color: #4a423a; }
+  /* 2行目は必ず1行。折り返すとマーカーが2段に割れて締まらないので、
+     幅に合わせて級数を落とす（320pxの端末まで1行を守る） */
+  .cc-1line { display: block; white-space: nowrap; font-size: min(3.25vw, 13px); }
   /* LPと同じ黄色のマーカー */
   .cc-mk { color: #16130f; background: linear-gradient(transparent 58%, #ffe95c 58%,
     #ffe95c 94%, transparent 94%); font-weight: bold; }
@@ -312,13 +315,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608120126"></script>
-<script src="js/art.js?v=202608120126"></script>
-<script src="js/scenes1.js?v=202608120126"></script>
-<script src="js/scenes2.js?v=202608120126"></script>
-<script src="js/scenes3.js?v=202608120126"></script>
-<script src="js/scenes4.js?v=202608120126"></script>
-<script src="js/sfx.js?v=202608120126"></script>
-<script src="js/game.js?v=202608120126"></script>
+<script src="js/data.js?v=202608120224"></script>
+<script src="js/art.js?v=202608120224"></script>
+<script src="js/scenes1.js?v=202608120224"></script>
+<script src="js/scenes2.js?v=202608120224"></script>
+<script src="js/scenes3.js?v=202608120224"></script>
+<script src="js/scenes4.js?v=202608120224"></script>
+<script src="js/sfx.js?v=202608120224"></script>
+<script src="js/game.js?v=202608120224"></script>
 </body>
 </html>
