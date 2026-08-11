@@ -205,6 +205,24 @@
   .lastword { margin-top: 18px; font-size: 16px; }
 
   .epi-words { text-align: center; margin-top: 10vh; font-size: 18px; letter-spacing: 2px; line-height: 2.2; }
+
+  /* iPhone 13 mini などの短い画面。本文の型は2行になるので、選択肢が4つ並ぶと
+     メルマガ作成の枠が押し出されて「いま選んだ件名」が見えなくなる。
+     詰めるのは余白と絵の高さだけ＝文字は小さくしない */
+  @media (max-height: 700px) {
+    #art { max-height: 14vh; }
+    #stage { padding: 10px 16px; }
+    #choices { padding: 2px 14px 5px; gap: 4px; }
+    .choice { padding: 7px 12px; line-height: 1.45; }
+    .mail { margin-bottom: 7px; }
+    .mail-body { padding: 6px 13px; min-height: 34px; }
+    .mail-bar { padding: 3px 10px; font-size: 11px; }
+    .mail-subj { line-height: 1.5; }
+    .send-wrap { margin-top: 1vh; gap: 8px; }
+    .textbox { line-height: 1.75; }
+    .center { margin-top: 4vh; }
+    .munedo { margin-top: 4vh; }
+  }
   .clear-wrap { text-align: center; margin-top: 6vh; display: flex; flex-direction: column; gap: 16px; }
   .game-clear { font-size: 34px; font-weight: bold; color: var(--gold); letter-spacing: 6px;
     text-shadow: 3px 3px 0 #4a3a08; }
@@ -267,13 +285,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608112035"></script>
-<script src="js/art.js?v=202608112035"></script>
-<script src="js/scenes1.js?v=202608112035"></script>
-<script src="js/scenes2.js?v=202608112035"></script>
-<script src="js/scenes3.js?v=202608112035"></script>
-<script src="js/scenes4.js?v=202608112035"></script>
-<script src="js/sfx.js?v=202608112035"></script>
-<script src="js/game.js?v=202608112035"></script>
+<script src="js/data.js?v=202608112101"></script>
+<script src="js/art.js?v=202608112101"></script>
+<script src="js/scenes1.js?v=202608112101"></script>
+<script src="js/scenes2.js?v=202608112101"></script>
+<script src="js/scenes3.js?v=202608112101"></script>
+<script src="js/scenes4.js?v=202608112101"></script>
+<script src="js/sfx.js?v=202608112101"></script>
+<script src="js/game.js?v=202608112101"></script>
 </body>
 </html>
