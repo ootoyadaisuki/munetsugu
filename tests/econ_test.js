@@ -91,6 +91,8 @@ console.log('T2c メンタル');
   check(`正直ルートは削れない（${good.mental}）`, good.mental >= 90);
   check(`煽りルートは底を打つ（${hype.mental}）`, hype.mental <= 5);
   check(`メンタル100では💀ゼロ`, Econ.killTones(100).length === 0);
+  // 第1通に💀は出ない。地雷は「自分が疲れてから」見えてくる
+  check(`開始メンタルでは💀ゼロ`, Econ.killTones(CONF.MENTAL.start).length === 0);
   check(`メンタル50ではegoだけが💀`, Econ.killTones(50).join() === 'ego');
   check(`メンタル35でego/hypeが💀・正直はまだ安全`,
     Econ.killTones(35).length === 2 && Econ.killTones(35).indexOf('honest') === -1);
