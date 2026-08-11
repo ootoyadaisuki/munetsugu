@@ -155,7 +155,7 @@ const SAVE_KEY = 'munetsugu_save_v5';
 // 進行: opening → keisho → R1..R12（小ネタはラウンド直後に挟む）→ result → ranks → ending
 const FLOW = ['opening', 'keisho'];
 ROUNDS.forEach(r => { FLOW.push(r.id); const k = KONETA.find(x => x.after === r.id); if (k) FLOW.push(k.id); });
-FLOW.push('result', 'ranks', 'ending');
+FLOW.push('result', 'verdict', 'ranks', 'ending');
 
 let S = load() || freshState();
 function freshState(meta) {
@@ -169,16 +169,16 @@ function chosen() { return { rounds: S.rounds, koneta: S.koneta }; }
 /* ---- 絵 ---- */
 let artKey = null, artRaf = null;
 function art(key) {
-  const el = $('#art');
+  const wrap = $('#artwrap');
   if (!key || typeof ART === 'undefined' || typeof ART[key] !== 'function') {
-    artKey = null; el.style.display = 'none';
+    artKey = null; wrap.style.display = 'none';
     if (artRaf) { cancelAnimationFrame(artRaf); artRaf = null; }
     return;
   }
-  if (artKey === key) return;
-  artKey = key; el.style.display = 'block';
-  if (artRaf) return;
-  const ctx = el.getContext('2d');
+  const same = artKey === key;
+  artKey = key; wrap.style.display = 'block';
+  if (same || artRaf) return;
+  const ctx = $('#art').getContext('2d');
   const loop = () => {
     artRaf = requestAnimationFrame(loop);
     if (!artKey) return;
@@ -187,10 +187,24 @@ function art(key) {
   };
   loop();
 }
-const BEAT_ART = { opening: 'title_boy', keisho: 'lp_page', R1: 'lp_page', R7: 'face_normal',
-  R12: 'face_normal', K1: 'desk', K2: 'phone_flip', K3: 'letter_note', K4: 'desk',
-  result: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
-function beatArt(beat) { return BEAT_ART[beat] || (beat.startsWith('R') ? 'desk' : null); }
+/* 史実ペースの目安。王道（全A×A）の累計カーブを史実総額に正規化したもの。
+   上回っていれば笑い、大きく下回れば不安な顔になる */
+const PACE = (() => {
+  const kon = {}; KONETA.forEach(k => kon[k.id] = k.choices.find(c => c.good).key);
+  const ref = Econ.simulate({ rounds: ROUNDS.map(() => ({ b: 'A', s: 'A' })), koneta: kon });
+  return ref.log.map(l => l.sales * CONF.HISTORIC / ref.sales);
+})();
+function moodKey() {
+  const done = S.rounds.filter(Boolean).length;
+  if (!done) return 'face_calm';
+  const r = HUD.sales / Math.max(1, PACE[done - 1]);
+  return r >= 1.0 ? 'face_smile' : r >= 0.72 ? 'face_calm' : 'face_worry';
+}
+const BEAT_ART = { opening: 'face_normal', keisho: 'lp_page',
+  K2: 'phone_flip', K3: 'letter_note',
+  result: 'result_bg', verdict: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
+/* セールス中は部屋を出さない。売上のペースで変わる顔だけを見せる */
+function beatArt(beat) { return BEAT_ART[beat] || moodKey(); }
 /* 絵の時刻を進める。ラウンド＝1時間なので、9:00→20:00と移り、
    小ネタは直前のラウンドの時刻を引き継ぐ */
 function syncArtHour(beat) {
@@ -201,7 +215,7 @@ function syncArtHour(beat) {
     const prev = ROUNDS.find(r => r.id === k.after);
     if (prev) return setArtHour(parseInt(prev.clock, 10));
   }
-  if (['result', 'ranks'].includes(beat)) setArtHour(18);
+  if (['result', 'verdict', 'ranks'].includes(beat)) setArtHour(18);
 }
 
 /* ---- HUD ---- */
@@ -226,9 +240,12 @@ function remainLabel(clock) {
 }
 let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0 };
 function paintHud(clock) {
-  const inGame = !['opening', 'keisho', 'ending'].includes(FLOW[S.beat]);
+  const beat = FLOW[S.beat];
+  const inGame = !['opening', 'keisho', 'verdict', 'ranks', 'ending'].includes(beat);
   $('#hud').style.display = inGame ? '' : 'none';
+  $('#timebar').style.display = inGame ? '' : 'none';
   if (!inGame) return;
+  if (artKey && artKey.startsWith('face_') && artKey !== 'face_normal') art(moodKey());
   if (clock) {
     const cEl = $('#hud-clock');
     cEl.textContent = remainLabel(clock);
@@ -241,8 +258,11 @@ function paintHud(clock) {
   rEl.classList.toggle('gold', remain <= 20000000);
   $('#hud-buyers').textContent = `継承 ${fmtNum(HUD.buyers)}本`;
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
-  $('#hud-list').textContent = `見込み客 ${fmtNum(HUD.list)}人`;
-  $('#hud-unsub').textContent = `解除 ${fmtNum(HUD.unsub)}人`;
+  $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
+  $('#hud-unsub').textContent = `メルマガ解除 ${fmtNum(HUD.unsub)}人`;
+  // 見込み客ゲージ（体力）。買われたぶんも解除されたぶんも削れる
+  const cap = CONF.LIST0 + (S.koneta.K2 === 'A' ? CONF.OISHII_ADD : 0);
+  $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
   const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
@@ -385,6 +405,7 @@ async function runBeat() {
     case 'opening': return runOpening();
     case 'keisho': return runKeisho();
     case 'result': return runResult();
+    case 'verdict': return runVerdict();
     case 'ranks': return runRanks();
     case 'ending': return runEnding();
   }
@@ -496,10 +517,7 @@ async function showSendResult(round, idx) {
   const upEl = stage().querySelector('.send-upsell');
   if (step.dUp > 0) {
     Sfx.play('rank');
-    await tween(0, step.dUp, 800, v => {
-      upEl.innerHTML = `アップセル +${fmtNum(v)}本` +
-        `<span class="up-note">（買った人の${Math.round(step.upRate * 100)}%）</span>`;
-    });
+    await tween(0, step.dUp, 800, v => { upEl.textContent = `アップセル +${fmtNum(v)}本`; });
   } else {
     upEl.innerHTML = `アップセル 0本<span class="up-note">（誰も進まなかった）</span>`;
     Sfx.play('miss');
@@ -507,12 +525,20 @@ async function showSendResult(round, idx) {
   HUD.upsells = simAfter.upsells; paintHud();
   await wait(step.dUnsub > 0 ? 800 : 200);
   // 少し遅れて解除（画面を赤くする）
+  const fill = $('#gauge-fill');
   if (step.dUnsub > 0) {
     Sfx.play('unsub');
     document.body.classList.add('flash-red');
     setTimeout(() => document.body.classList.remove('flash-red'), FAST ? 0 : 700);
     const unEl = stage().querySelector('.send-unsub');
-    await tween(0, step.dUnsub, 800, v => { unEl.textContent = `解除 −${fmtNum(v)}人`; });
+    fill.classList.add('draining');
+    HUD.unsub = simAfter.unsub;
+    // 解除の数字と見込み客ゲージを同時に走らせる＝減っているのが目で分かる
+    await Promise.all([
+      tween(0, step.dUnsub, 800, v => { unEl.textContent = `メルマガ解除 −${fmtNum(v)}人`; }),
+      tween(simBefore.list, simAfter.list, 800, v => { HUD.list = v; paintHud(); }),
+    ]);
+    fill.classList.remove('draining');
   }
   HUD.list = simAfter.list; HUD.unsub = simAfter.unsub; paintHud();
   // 今回の売上（解除の下。1通ぶんの成果をここで締める）
@@ -528,12 +554,12 @@ async function showSendResult(round, idx) {
   await wait(400);
   await new Promise(r => tapToContinue(r));
 
-  // 顧客の声（購入者×3 → 未購入者×3 → 解除者×3 の3ページ）
+  // 顧客の声（購入者 → 未購入者 → 解除した人 の3ページ）
   const v = voicesFor(round, pick, step);
   await showLines(['購入者の声', '', ...v.buy.map(t => `「${t}」`)]);
-  await showLines(['未購入者の声', '', ...v.stay.map(t => `「${t}」`)]);
-  if (v.out.length) await showLines(['解除した人の声', '', ...v.out.map(t => `「${t}」`)], { cls: 'unsub-voice' });
-  else await showLines(['解除した人の声', '', '——今回は、ほとんど出ていない。']);
+  await showLines([v.stayHead, '', ...v.stay.map(t => `「${t}」`)]);
+  if (v.out.length) await showLines(['メルマガ解除した人の声', '', ...v.out.map(t => `「${t}」`)], { cls: 'unsub-voice' });
+  else await showLines(['メルマガ解除した人の声', '', '——今回は、ひとりも出ていない。']);
   next();
 }
 
@@ -557,13 +583,17 @@ function voicesFor(round, pick, step) {
   const buy = step.trueEnd && v.trueEnd
     ? three(v.trueEnd.buy, VOICE_POOL.buy[pick.b])
     : three(byType.buy, VOICE_POOL.buy[pick.b]);
-  const stay = three(byType.stay, VOICE_POOL.stay[pick.b]);
+  /* 伊勢さんに「聞いてみます」と答えたうえで、実際に第6通で買わない理由を聞いた場合だけ、
+     本音の返信が返ってくる。ここで出る不安が、そのまま第11通の答えになる */
+  const kiku = round.special === 'r6_combo' && pick.b === 'A' && S.koneta.K4 === 'B' && v.kiku;
+  const stay = kiku ? v.kiku.slice(0, 3) : three(byType.stay, VOICE_POOL.stay[pick.b]);
+  // 解除は1人でも出たら声を出す（少ないときは1本だけ＝重くしない）
   let out = [];
-  if (step.dUnsub > 30) {
+  if (step.dUnsub > 0) {
     const first = (step.cls === 'tsuri' && v.tsuri) ? v.tsuri.out : byType.out;
-    out = three(first, VOICE_POOL.out[pick.b]).filter(Boolean);
+    out = three(first, VOICE_POOL.out[pick.b]).filter(Boolean).slice(0, step.dUnsub > 30 ? 3 : 1);
   }
-  return { buy, stay, out };
+  return { buy, stay, out, stayHead: kiku ? '返信が届いた' : '未購入者の声' };
 }
 
 async function runKoneta(k) {
@@ -609,6 +639,29 @@ async function runResult() {
       ／ アップセル ${fmtNum(sim.upsells)}本 ${fmtYenKanji(sim.upsells * CONF.UPSELL)}</div>
     <div class="res-copy">${sim.win ? TEXTS.result.win : TEXTS.result.lose}</div></div>`;
   await wait(900);
+  await new Promise(r => tapToContinue(r));
+  next();
+}
+
+/* 勝敗の宣告。評価画面の前に、超えたか超えなかったかだけを見せる */
+async function runVerdict() {
+  const sim = Econ.simulate(chosen());
+  const E = TEXTS.ending;
+  choicesEl().innerHTML = '';
+  if (sim.win) {
+    art('epilogue_sky');
+    Sfx.play('clear');
+    stage().innerHTML = `<div class="clear-wrap">
+      <div class="game-clear">${E.clear}</div>
+      <div class="clear-sub">${E.clearSub}</div></div>`;
+  } else {
+    Sfx.play('lose');
+    stage().innerHTML = `<div class="clear-wrap">
+      <div class="game-over">${E.notYet}</div>
+      <div class="notyet-lines">${E.notYetLines.filter(Boolean).join('<br>')}</div>
+      <div class="clear-sub">${E.notYetSub}</div></div>`;
+  }
+  await wait(1600);
   await new Promise(r => tapToContinue(r));
   next();
 }
@@ -668,14 +721,8 @@ async function runEnding() {
   choicesEl().innerHTML = '';
   if (sim.win) {
     S.clears++; save();
-    Sfx.play('clear');
     if (FAST) { window.__cleared = true; console.log('[autotest] __CLEAR__'); }
     art('epilogue_sky');
-    stage().innerHTML = `<div class="clear-wrap">
-      <div class="game-clear">${E.clear}</div>
-      <div class="clear-sub">${E.clearSub}</div></div>`;
-    await wait(1200);
-    await new Promise(r => tapToContinue(r));
     // 行動することについて、本人の言葉で締める
     for (const page of E.message) await showLines(page, { cls: 'center' });
     stage().innerHTML = `<div class="clear-wrap">
@@ -684,12 +731,9 @@ async function runEnding() {
     await wait(900);
   } else {
     art('result_bg');
-    Sfx.play('lose');
     stage().innerHTML = `<div class="clear-wrap">
-      <div class="game-over">${E.notYet}</div>
-      <div class="notyet-lines">${E.notYetLines.filter(Boolean).join('<br>')}</div>
-      <div class="clear-sub">${E.notYetSub}</div></div>`;
-    await wait(1400);
+      <div class="notyet-lines">${E.retryLead}</div></div>`;
+    await wait(600);
   }
 
   if (FAST) return;

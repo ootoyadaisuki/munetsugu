@@ -18,15 +18,15 @@
    頭は小さめ・肩は広く丸く。棒にしないための比率をここで固定する。 */
 const MU = {
   cx: 176,          // 顔の中心
-  headL: 146, headW: 60,  // 顔の箱（146〜206）
+  headL: 150, headW: 52,  // 顔の箱（150〜202）。細面にするため幅は狭く、丈は長く
   faceT: 50, faceB: 114,  // 額の生え際〜あごの下
   browY: 66,        // 眉（メガネの上辺と重ならない高さ。下げるとフレームと1本に潰れる）
   eyeY: 78,         // 目の上端
-  eyeW: 14, eyeH: 7,
-  eyeLX: 154, eyeRX: 184, // 左右の目の左端
+  eyeW: 13, eyeH: 6,      // 目は小さめ＝キリッとした印象の土台
+  eyeLX: 156, eyeRX: 183, // 左右の目の左端
   noseY: 88,
   mouthY: 100,
-  neckX: 163, neckW: 26, neckT: 108,
+  neckX: 165, neckW: 22, neckT: 108,
   shoY: 130,        // 肩の頂点
 };
 
@@ -65,7 +65,7 @@ function muBody(o) {
 
   /* 胴（肩を丸める＝段を細かく積む。棒人間にしない肝） */
   for (let i = 0; i < 9; i++) {
-    const w = 74 + i * i * 2.1 + i * 6;      // 下へ行くほど加速度的に広がる
+    const w = 64 + i * i * 1.9 + i * 5.4;    // 下へ行くほど加速度的に広がる
     const y = MU.shoY + oy + i * 3;
     P(MU.cx - w / 2, y, w, 4, clothCol);
   }
@@ -102,7 +102,7 @@ function muBody(o) {
   P(MU.cx + 30, MU.shoY + oy + 16, 34, 3, lit(clothCol, 1.35));
   // 肩の縁光（背後の画面光。左肩だけ青緑に光らせて輪郭を立てる）
   for (let i = 0; i < 8; i++) {
-    const w = 74 + i * i * 2.1 + i * 6;
+    const w = 64 + i * i * 1.9 + i * 5.4;
     const y = MU.shoY + oy + i * 3;
     P(MU.cx - w / 2, y, 2, 4, lit(PAL.crt, 0.55));
   }
@@ -115,9 +115,10 @@ function muBody(o) {
 
   /* 顔の輪郭（横帯を積む。左右対称・あごへ向かって細る） */
   const bands = [
-    [MU.faceT - 2, 4, 8], [MU.faceT + 2, 4, 4], [MU.faceT + 6, 4, 1],
-    [MU.faceT + 10, 40, 0],
-    [MU.faceT + 50, 4, 3], [MU.faceT + 54, 4, 8], [MU.faceT + 58, 4, 15],
+    [MU.faceT - 2, 4, 7], [MU.faceT + 2, 4, 3], [MU.faceT + 6, 4, 1],
+    [MU.faceT + 10, 34, 0],
+    [MU.faceT + 44, 4, 2], [MU.faceT + 48, 4, 4], [MU.faceT + 52, 4, 7],
+    [MU.faceT + 56, 4, 11], [MU.faceT + 60, 3, 17],
   ];
   for (const [by, bh, ins] of bands) P(MU.headL + ins, by + oy, MU.headW - ins * 2, bh, skin);
   // 顔の右半分に影（光は左から）。輪郭と同じ帯で描く＝あご下や耳の外へはみ出さない
@@ -146,10 +147,10 @@ function muBody(o) {
   P(MU.headL, MU.faceT + 2 + oy, 5, 14, PAL.hair);                  // 刈り込んだサイド（左）
   P(MU.headL + MU.headW - 5, MU.faceT + 2 + oy, 5, 14, PAL.hair);   // 同（右）
   // 生え際を1段ギザに（のっぺりを消す。M字にはしない）
-  for (let i = 0; i < 6; i++) P(MU.headL + 6 + i * 8, MU.faceT + 2 + oy, 7, 1 + (hash(i) > 0.5 ? 1 : 0), PAL.hair);
+  for (let i = 0; i < 5; i++) P(MU.headL + 5 + i * 9, MU.faceT + 2 + oy, 8, 1 + (hash(i) > 0.5 ? 1 : 0), PAL.hair);
   /* 跳ねた毛束（5本）。根元は必ず頭頂の塊に食い込ませる＝浮いたアンテナにしない。
      [根元x, 長さ, 倒す向き, 根元の高さ] */
-  const spikes = [[10, 7, -1, -14], [20, 11, -1, -17], [30, 13, 1, -19], [40, 11, 1, -17], [49, 7, 1, -14]];
+  const spikes = [[8, 6, -1, -14], [16, 10, -1, -17], [25, 12, 1, -19], [34, 10, 1, -17], [42, 6, 1, -14]];
   for (let i = 0; i < spikes.length; i++) {
     const [sx, len, dir, sy] = spikes[i];
     const L = len + (mess ? 3 + hash(i) * 4 : 0);          // 乱れているときだけ伸ばす
@@ -168,9 +169,7 @@ function muBody(o) {
     P(MU.headL + sx + dir * L * 0.42, MU.faceT + sy - L + 1 + oy, 2, 2, lit(PAL.crt, 0.6));
   }
 
-  /* 眉（4枚共通の形。角度だけ各エントリで足す） */
-  P(MU.eyeLX, MU.browY + oy, 16, 3, PAL.hair);
-  P(MU.eyeRX, MU.browY + oy, 16, 3, PAL.hair);
+  muBrows(oy, o.brow);
 
   /* 鼻（影1本だけ。記号で足りる） */
   P(MU.cx - 3, MU.noseY + oy, 3, 8, lit(skin, 0.72));
@@ -179,15 +178,18 @@ function muBody(o) {
   /* 口ひげ・あごひげ（本人の識別要素その3：薄く整えてある）
      口をぐるりと囲まず、鼻の下とあご先の2ブロックだけ。無精髭にしない＝
      真っ黒を置かず、肌に髪色を薄く重ねた中間色を使う。 */
-  const beard = '#332f3a';
-  P(MU.cx - 11, MU.noseY + 7 + oy, 22, 4, beard);          // 口ひげ（鼻の下。影に見えない厚みを持たせる）
-  P(MU.cx - 2, MU.noseY + 7 + oy, 4, 2, lit(skin, 0.85));  // 人中のくぼみ＝中央を割る
-  P(MU.cx - 13, MU.noseY + 8 + oy, 2, 2, lit(beard, 1.3)); // 端をぼかす
-  P(MU.cx + 11, MU.noseY + 8 + oy, 2, 2, lit(beard, 1.3));
-  P(MU.cx - 6, MU.mouthY + 5 + oy, 12, 7, beard);          // あご先
-  P(MU.cx - 4, MU.mouthY + 12 + oy, 8, 2, lit(beard, 0.85));
-  _c.globalAlpha = 0.35;                                   // ひげの生え際をなじませる
-  P(MU.cx - 13, MU.mouthY + 4 + oy, 26, 2, beard);
+  const beard = '#453f4c';                                 // 薄い。真っ黒にすると無精髭になる
+  _c.globalAlpha = 0.72;
+  P(MU.cx - 9, MU.noseY + 7 + oy, 18, 3, beard);           // 口ひげ（鼻の下。細く一本）
+  P(MU.cx - 2, MU.noseY + 7 + oy, 4, 2, lit(skin, 0.9));   // 人中のくぼみ＝中央を割る
+  _c.globalAlpha = 0.45;
+  P(MU.cx - 11, MU.noseY + 8 + oy, 2, 2, beard);           // 端をぼかす
+  P(MU.cx + 9, MU.noseY + 8 + oy, 2, 2, beard);
+  _c.globalAlpha = 0.68;
+  P(MU.cx - 5, MU.mouthY + 5 + oy, 10, 5, beard);          // あご先（小さく）
+  _c.globalAlpha = 0.4;
+  P(MU.cx - 3, MU.mouthY + 10 + oy, 6, 2, beard);
+  P(MU.cx - 10, MU.mouthY + 4 + oy, 20, 1, beard);         // 生え際をなじませる
   _c.globalAlpha = 1;
 
   /* 左耳のピアス（1ドットの主張。金属なので画面光を拾う） */
@@ -195,17 +197,43 @@ function muBody(o) {
   D(MU.headL - 3, MU.faceT + 37 + oy, PAL.white);
 }
 
+/* 眉（3種）。細く、外側へ向かって上がる＝吊り上がり気味が基準の顔。
+   太らせると途端に鈍くなるので、厚みは2ドットで固定する。
+   mode: 'base' 吊り上がり／'up' さらに上げる（好調）／'worry' 八の字（内側が上がる） */
+function muBrows(oy, mode) {
+  const up = mode === 'up' ? -3 : 0;
+  if (mode === 'worry') {                    // 困り眉＝内側だけ持ち上がる
+    const seg = [[-2, 4], [4, 2], [9, 0]];   // [x, 下げ量] 外→内
+    for (const [dx, dy] of seg) {
+      P(MU.eyeLX - 1 + dx, MU.browY + dy + oy, 6, 2, PAL.hair);
+      P(MU.eyeRX + 12 - dx - 6, MU.browY + dy + oy, 6, 2, PAL.hair);
+    }
+    return;
+  }
+  // 外側が高く、内側へ向かって下がる（吊り上がり）
+  const seg = [[-2, -1], [4, 1], [9, 2]];    // [x, 下げ量] 外→内
+  for (const [dx, dy] of seg) {
+    P(MU.eyeLX - 1 + dx, MU.browY + dy + up + oy, 6, 2, PAL.hair);        // 左（外は画面左）
+    P(MU.eyeRX + 12 - dx - 6, MU.browY + dy + up + oy, 6, 2, PAL.hair);   // 右（左右対称）
+  }
+}
+
 /* 開いた目（記号的に：白目の四角＋黒目の四角＋光点1つ）
    sq … 上まぶたを下げる量（まばたき／伏し目） */
 function muEyesOpen(oy, sq, pupilCol) {
   const h = Math.max(1, MU.eyeH - sq);
-  for (const ex of [MU.eyeLX, MU.eyeRX]) {
+  for (let i = 0; i < 2; i++) {
+    const ex = i ? MU.eyeRX : MU.eyeLX, out = i ? 1 : -1;   // out = 顔の外側の向き
     P(ex, MU.eyeY + sq + oy, MU.eyeW, h, PAL.paper);
-    P(ex, MU.eyeY + sq + oy, MU.eyeW, 1, lit(PAL.slate, 0.9)); // まぶたの影
+    // 上まぶた（濃い1本）。外側の端だけ1段持ち上げて目尻を切れ上がらせる
+    P(ex, MU.eyeY + sq + oy, MU.eyeW, 1, PAL.hair);
+    P(ex + (out > 0 ? MU.eyeW - 4 : 0), MU.eyeY + sq - 1 + oy, 4, 1, PAL.hair);
     if (h >= 3) {
-      P(ex + 4, MU.eyeY + sq + 1 + oy, 6, h - 2, pupilCol || PAL.hair);
-      D(ex + 5, MU.eyeY + sq + 2 + oy, PAL.white);             // 光点
+      P(ex + 4, MU.eyeY + sq + 1 + oy, 5, h - 1, pupilCol || PAL.hair);
+      D(ex + 5, MU.eyeY + sq + 1 + oy, PAL.white);           // 光点
     }
+    // 目頭の影（1ドット。彫りを出す）
+    P(ex + (out > 0 ? 0 : MU.eyeW - 1), MU.eyeY + sq + 1 + oy, 1, Math.max(1, h - 1), lit(PAL.slate, 0.8));
   }
 }
 /* 閉じた目（線1本＋まつげの段。三日月にして安らかに） */
@@ -308,8 +336,7 @@ ART.face_red = () => {
   // 目（見開きすぎない。少し伏せて息を整えている）
   muEyesOpen(oy, 2);
   // 眉を八の字に（力が抜けた直後）
-  P(MU.eyeLX, MU.browY + 3 + oy, 6, 2, PAL.hair);
-  P(MU.eyeRX + 10, MU.browY + 3 + oy, 6, 2, PAL.hair);
+  muBrows(oy, 'worry');
   // メガネがズレて曇っている（この1枚のギャグの本体。傾き＋横ズレ＋白い曇り）
   muGlasses(oy, { tilt: 2, dx: 2, fog: 0.55, hi: 0.25 });
   // ズレたぶんだけ鼻の上に赤い当たり跡（ちゃんと乗っていた証拠）
@@ -468,3 +495,47 @@ ART.face_tear = () => {
   }
   scanlines(0, 0, 360, 200, 0.05);
 };
+
+/* ── ⑤ セールス中の顔（画面いっぱいのバストアップ）────────────
+   ラウンド中はこの3枚のどれかが出る。①〜④とまったく同じ骨格を使うので
+   別人にならない。差分は 眉・目・口・レンズの反射 の4点だけ。
+   smile … 売上が史実ペースを上回っている
+   calm  … 拮抗している（基準）
+   worry … ゲームオーバーのペース */
+function muFace(mood) {
+  const smile = mood === 'smile', worry = mood === 'worry';
+  muRoom();
+  // 不安なときだけ肩がわずかに落ちる
+  const oy = worry ? 2 : 0;
+  muBody({ oy, brow: worry ? 'worry' : smile ? 'up' : 'base' });
+  // 目（まばたきは①と同じ周期。笑うと少し細くなる）
+  const bt = T() % 4.3;
+  const blink = bt < 0.09 ? 6 : (bt < 0.16 ? 3 : 0);
+  muEyesOpen(oy, smile ? Math.max(blink, 2) : blink);
+  // メガネ（好調ほど反射が強い＝表情より先に「調子」が伝わる）
+  muGlasses(oy, { hi: smile ? 1.0 : worry ? 0.3 : 0.7 });
+  const lipC = '#8a4a44';
+  if (smile) {                      // 口角の上がった弧
+    P(MU.cx - 10, MU.mouthY, 20, 2, lipC);
+    P(MU.cx - 13, MU.mouthY - 2, 3, 2, lipC);
+    P(MU.cx + 10, MU.mouthY - 2, 3, 2, lipC);
+    P(MU.cx - 15, MU.mouthY - 4, 2, 2, lipC);
+    P(MU.cx + 13, MU.mouthY - 4, 2, 2, lipC);
+    P(MU.cx - 9, MU.mouthY + 2, 18, 1, lit(PAL.skin, 0.72));
+  } else if (worry) {               // への字＋こめかみの冷や汗（3秒に1粒）
+    P(MU.cx - 9, MU.mouthY + 2 + oy, 18, 2, lipC);
+    P(MU.cx - 12, MU.mouthY + oy, 3, 2, lipC);
+    P(MU.cx + 9, MU.mouthY + oy, 3, 2, lipC);
+    const sw = (T() * 0.85) % 3;
+    if (sw < 1.3) P(MU.headL + MU.headW - 10, MU.faceT + 6 + sw * 22 + oy, 2, 5, lit(PAL.crt, 1.5));
+  } else {                          // 一文字（口角を1ドットだけ上げた基準の顔）
+    P(MU.cx - 11, MU.mouthY, 22, 2, lipC);
+    P(MU.cx - 12, MU.mouthY - 1, 2, 2, lipC);
+    P(MU.cx + 10, MU.mouthY - 1, 2, 2, lipC);
+    P(MU.cx - 11, MU.mouthY + 2, 22, 1, lit(PAL.skin, 0.7));
+  }
+  scanlines(0, 0, 360, 200, 0.06);
+}
+ART.face_smile = () => muFace('smile');
+ART.face_calm = () => muFace('calm');
+ART.face_worry = () => muFace('worry');
