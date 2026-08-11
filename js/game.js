@@ -280,7 +280,6 @@ function paintHud(clock) {
   $('#hud-buyers').textContent = `フロント ${fmtNum(HUD.buyers)}本`;
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
-  $('#hud-unsub').textContent = `メルマガ解除 ${fmtNum(HUD.unsub)}人`;
   // 見込み客ゲージ（体力）。買われたぶんも解除されたぶんも削れる
   const cap = CONF.LIST0 + (S.koneta.K2 === 'A' ? CONF.OISHII_ADD : 0);
   $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
@@ -550,20 +549,20 @@ async function showSendResult(round, idx) {
   HUD.upsells = simAfter.upsells; paintHud();
   await wait(step.dUnsub > 0 ? 800 : 200);
   // 少し遅れて解除（画面を赤くする）
-  const fill = $('#gauge-fill');
+  const gauge = $('.gauge');
   if (step.dUnsub > 0) {
     Sfx.play('unsub');
     document.body.classList.add('flash-red');
     setTimeout(() => document.body.classList.remove('flash-red'), FAST ? 0 : 700);
     const unEl = stage().querySelector('.send-unsub');
-    fill.classList.add('draining');
+    gauge.classList.add('draining');
     HUD.unsub = simAfter.unsub;
     // 解除の数字と見込み客ゲージを同時に走らせる＝減っているのが目で分かる
     await Promise.all([
       tween(0, step.dUnsub, 800, v => { unEl.textContent = `メルマガ解除 −${fmtNum(v)}人`; }),
       tween(simBefore.list, simAfter.list, 800, v => { HUD.list = v; paintHud(); }),
     ]);
-    fill.classList.remove('draining');
+    gauge.classList.remove('draining');
   }
   HUD.list = simAfter.list; HUD.unsub = simAfter.unsub; paintHud();
   // 今回の売上（解除の下。1通ぶんの成果をここで締める）

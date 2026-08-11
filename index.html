@@ -36,12 +36,11 @@
   /* 見込み客＝体力ゲージ。解除のたびに削れていく */
   .hud-gauge-row { display: flex; align-items: center; gap: 8px; margin-top: 3px;
     font-size: 10.5px; color: var(--dim); white-space: nowrap; }
-  .gauge { flex: 1; height: 9px; background: #0b0e16; border: 1px solid var(--line);
+  /* 減った分（＝解除と購入で抜けた人）が赤く残る体力ゲージ */
+  .gauge { flex: 1; height: 9px; background: #7a2f2f; border: 1px solid var(--line);
     overflow: hidden; }
+  .gauge.draining { background: var(--red); }
   #gauge-fill { height: 100%; width: 100%; background: #4d8ec4; }
-  #gauge-fill.draining { background: var(--red); }
-  .hud-mid { display: flex; gap: 10px; font-size: 11px; margin-top: 2px; white-space: nowrap; }
-  #hud-unsub { color: var(--red); }
   #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
@@ -199,9 +198,6 @@
       <span>見込み客</span>
       <div class="gauge"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
-    </div>
-    <div class="hud-mid">
-      <span id="hud-unsub">メルマガ解除 0人</span>
     </div>
   </div>
   <div id="artwrap">
