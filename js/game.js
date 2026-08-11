@@ -540,10 +540,8 @@ async function showTitle() {
   setArtHour(6); art('face_normal'); paintHud();
   stage().innerHTML = `<div class="title-wrap">
     <div class="game-title">${O.title}</div>
-    <div class="game-sub">${O.sub}</div>
-    <button class="title-lp">${O.titleLp}</button></div>`;
+    <div class="game-sub">${O.sub}</div></div>`;
   choicesEl().innerHTML = '';
-  stage().querySelector('.title-lp').onclick = e => { e.stopPropagation(); Sfx.play('ui'); openLp(); };
   const canContinue = S.beat > 1 && FLOW[S.beat];
   const pick = await gate(res => {
     if (FAST) return Promise.resolve().then(() => res('new'));
@@ -556,6 +554,12 @@ async function showTitle() {
     };
     if (canContinue) mk(O.btnCont, 'cont');
     mk(O.btnNew, 'new');
+    // 案内は「はじめから」より下。遊びに来た人の邪魔をしない
+    const lp = document.createElement('button');
+    lp.className = 'title-lp';
+    lp.textContent = O.titleLp;
+    lp.onclick = e => { e.stopPropagation(); Sfx.play('ui'); openLp(); };
+    choicesEl().appendChild(lp);
     guardTaps();
   });
   atTitle = false;

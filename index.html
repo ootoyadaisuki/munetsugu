@@ -204,11 +204,11 @@
   .munedo-note { color: var(--dim); font-size: 11px; line-height: 1.6; margin-top: 5px; }
   .lastword { margin-top: 18px; font-size: 16px; }
 
-  /* タイトルの隅。売り込まない＝小さく、金でなく灰で置く */
-  .title-lp { background: none; border: none; color: var(--dim); font-family: inherit;
-    font-size: 11px; letter-spacing: 1px; margin-top: 22px; cursor: pointer;
-    border-bottom: 1px solid var(--line); padding: 2px 0; }
-  .title-lp:active { color: var(--gold); }
+  /* タイトルの案内。押せると分かる程度に立てるが、はじめからより前には出ない */
+  .title-lp { background: none; border: 1px solid var(--line); color: var(--dim);
+    font-family: inherit; font-size: 12px; letter-spacing: 1px; margin-top: 14px;
+    cursor: pointer; padding: 8px 14px; border-radius: 2px; align-self: center; }
+  .title-lp:active { border-color: var(--gold); color: var(--gold); }
   /* エンディング後の橋渡し。金で立てる（.lp-btn は継承LPの絵で使用済みなので別名） */
   .choice.contena-btn { width: 280px; border-color: var(--gold); color: var(--gold);
     font-weight: bold; padding: 13px; }
@@ -295,13 +295,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608120107"></script>
-<script src="js/art.js?v=202608120107"></script>
-<script src="js/scenes1.js?v=202608120107"></script>
-<script src="js/scenes2.js?v=202608120107"></script>
-<script src="js/scenes3.js?v=202608120107"></script>
-<script src="js/scenes4.js?v=202608120107"></script>
-<script src="js/sfx.js?v=202608120107"></script>
-<script src="js/game.js?v=202608120107"></script>
+<script src="js/data.js?v=202608120111"></script>
+<script src="js/art.js?v=202608120111"></script>
+<script src="js/scenes1.js?v=202608120111"></script>
+<script src="js/scenes2.js?v=202608120111"></script>
+<script src="js/scenes3.js?v=202608120111"></script>
+<script src="js/scenes4.js?v=202608120111"></script>
+<script src="js/sfx.js?v=202608120111"></script>
+<script src="js/game.js?v=202608120111"></script>
 </body>
 </html>
