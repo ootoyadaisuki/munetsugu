@@ -236,6 +236,7 @@ function syncArtHour(beat) {
     if (prev) return setArtHour(parseInt(prev.clock, 10));
   }
   if (['result', 'verdict', 'ranks'].includes(beat)) setArtHour(18);
+  if (['opening', 'keisho'].includes(beat)) setArtHour(6);   // まだ朝5時55分
 }
 
 /* ---- HUD ---- */

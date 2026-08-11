@@ -24,9 +24,13 @@
     font-variant-numeric: tabular-nums; flex-shrink: 0;
   }
   /* 左に本数、右に金額。金額は 総売上 → 史実まで の順で縦に並ぶ */
-  .hud-top { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
-  .hud-counts { display: flex; gap: 10px; font-size: 10.5px; color: var(--dim); }
-  .hud-sales-label { color: var(--gold); font-size: 18px; font-weight: bold; margin-left: auto; }
+  /* 左に本数を2段、右に金額を2段。左右の縦幅が揃う */
+  .hud-top { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .hud-counts { display: flex; flex-direction: column; gap: 1px; font-size: 11px; }
+  .hud-money { margin-left: auto; display: flex; flex-direction: column;
+    align-items: flex-end; gap: 1px; }
+  .hud-sales-row { display: flex; align-items: baseline; gap: 6px; }
+  .hud-sales-label { color: var(--gold); font-size: 16px; font-weight: bold; }
   #hud-sales { color: var(--gold); font-size: 18px; font-weight: bold; }
   #hud-buyers, #hud-upsell { color: var(--gold); }
   /* 見込み客＝体力ゲージ。解除のたびに削れていく */
@@ -38,7 +42,7 @@
   #gauge-fill.draining { background: var(--red); }
   .hud-mid { display: flex; gap: 10px; font-size: 11px; margin-top: 2px; white-space: nowrap; }
   #hud-unsub { color: var(--red); }
-  #hud-remain { color: var(--blue); margin-left: auto; }
+  #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
   #timebar { padding: 4px 14px; text-align: center; background: #11151d;
@@ -181,17 +185,21 @@
         <span id="hud-buyers">フロント 0本</span>
         <span id="hud-upsell">アップセル 0本</span>
       </span>
-      <span class="hud-sales-label">総売上</span>
-      <span id="hud-sales">0円</span>
-    </div>
-    <div class="hud-mid">
-      <span id="hud-unsub">メルマガ解除 0人</span>
-      <span id="hud-remain">史実まで、あと 5億6490万円</span>
+      <span class="hud-money">
+        <span class="hud-sales-row">
+          <span class="hud-sales-label">総売上</span>
+          <span id="hud-sales">0円</span>
+        </span>
+        <span id="hud-remain">史実まで、あと 5億6490万円</span>
+      </span>
     </div>
     <div class="hud-gauge-row">
       <span>見込み客</span>
       <div class="gauge"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
+    </div>
+    <div class="hud-mid">
+      <span id="hud-unsub">メルマガ解除 0人</span>
     </div>
   </div>
   <div id="artwrap">

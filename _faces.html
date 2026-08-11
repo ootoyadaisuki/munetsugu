@@ -17,12 +17,13 @@
 </style>
 </head>
 <body>
-<h1>セールス中に出る顔（全6種）</h1>
+<h1>セールス中に出る顔（全6種）＋ 時間帯による部屋の色</h1>
 <div class="note">
   12通のあいだ、この6枚のどれかが出ています。売上が「王道ルートの累計カーブを史実総額に
   正規化したもの」を上回っていれば笑い、大きく下回ると不安な顔になります。<br>
   差分は 眉・目・口・メガネの反射 の4点だけ。骨格は共通なので別人になりません。
 </div>
+<div id="hours"></div>
 <div id="z"></div>
 <script src="js/art.js"></script>
 <script src="js/scenes1.js"></script>
@@ -38,6 +39,32 @@
     ['face_pale', '⑤ 青ざめ', 'かなり悪い（肌から赤みが抜ける・額に縦線・汗が2粒・口が開いたまま固まる）'],
     ['face_cry', '⑥ 涙', '絶望的（レンズの内側に涙がたまり、縁を越えて頬を伝う）'],
   ];
+  // 時間帯ぶんの並び（同じ顔で、壁の色だけが変わる）
+  const HOURS = [6, 7, 9, 12, 15, 17, 18];
+  const hz = document.getElementById('hours');
+  const hcv = [];
+  {
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.innerHTML = '時間帯<span>6:00 夜明け前 → 12:00 昼 → 17:00 夕方 → 18:00 日没後。'
+      + '顔に当たるノートPCの光は12時間ずっと同じで、変わるのは壁と窓からの回り込みだけ</span>';
+    hz.appendChild(cap);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:24px';
+    hz.appendChild(row);
+    for (const h of HOURS) {
+      const box = document.createElement('div');
+      box.style.cssText = 'width:172px';
+      const c = document.createElement('canvas');
+      c.width = 360; c.height = 200;
+      c.style.cssText = 'width:172px;image-rendering:pixelated;border:2px solid #2a3140';
+      const lab = document.createElement('div');
+      lab.style.cssText = 'font-size:11px;color:#8a8f9a;padding:2px 0';
+      lab.textContent = h + ':00';
+      box.appendChild(c); box.appendChild(lab); row.appendChild(box);
+      hcv.push([c.getContext('2d'), h]);
+    }
+  }
   const z = document.getElementById('z');
   const canvases = [];
   for (const [key, name, desc] of LIST) {
@@ -52,6 +79,12 @@
   // まばたきと汗が動くので、毎フレーム描き直す
   (function loop() {
     requestAnimationFrame(loop);
+    for (const [ctx, h] of hcv) {
+      setArtHour(h);
+      useCtx(ctx); ctx.clearRect(0, 0, 360, 200);
+      try { ART.face_calm(ctx); } catch (e) {}
+    }
+    setArtHour(12);
     for (const [ctx, key] of canvases) {
       useCtx(ctx); ctx.clearRect(0, 0, 360, 200);
       try { ART[key](ctx); } catch (e) {}
