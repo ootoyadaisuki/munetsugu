@@ -262,13 +262,28 @@ function _bookSolid(x, y, w, h, thick, sh, cover, opts) {
     D(bx0 + c, y + h + d, lit(PAL.night, 1.25));    // 接地の影
   }
 
-  /* --- 背（左のふくらみ。丸背なので外へ2〜3px張り出す） --- */
+  /* --- 背（左のふくらみ）---------------------------------------------
+     ここを 3px の暗い線で済ませると、机の飴色に沈んで「背表紙が無い本」に見える。
+     幅を取って丸みを塗り分け、外側は光を拾う縁、その外に机への落ち影を1本。
+     これで背が面として立ち上がる。 */
+  const BULGE = 9;
   for (let r = 0; r < h; r++) {
     const ins = inset(r);
     if (ins > 2) continue;
-    const bulge = worn ? 3 + (Math.sin(r * 0.45) > 0.2 ? 1 : 0) : 3;
+    const bulge = BULGE - (worn && Math.sin(r * 0.45) < -0.4 ? 1 : 0);   // 使い込み＝波打つ
     for (let b = 1; b <= bulge; b++) {
-      D(x + r * sh - b + ins, y + r, b === bulge ? lit(spine, 0.62) : spine);
+      const t = b / bulge;                               // 0=表紙寄り 1=いちばん外
+      // 丸背の陰影: 中ほどが最も光り、外へ回り込むほど落ちる。最外の1pxだけ縁が照る
+      const k = b === bulge ? 1.6 : 0.78 + Math.sin(t * Math.PI) * 0.62;
+      D(x + r * sh - b + ins, y + r, lit(spine, k));
+    }
+    D(x + r * sh - bulge - 1 + ins, y + r, lit(PAL.night, 1.0));    // 机に落ちる影
+  }
+  /* 背バンド（天と地の帯）。本の背だと一目で分かる signature */
+  for (const r of [2, 3, h - 4, h - 3]) {
+    if (r < 0 || r >= h) continue;
+    for (let b = 1; b <= BULGE; b++) {
+      D(x + r * sh - b + inset(r), y + r, lit(spine, worn ? 0.62 : 1.9));
     }
   }
 
@@ -312,7 +327,7 @@ ART.books = () => {
   P(AX + 6, AY + AH + ATH + 1, AW, 3, '#241606');
   _c.globalAlpha = 1;
   const a = _bookSolid(AX, AY, AW, AH, ATH, SH, PAL.slate, {
-    spine: lit(PAL.slate, 0.7), pageA: PAL.white, pageB: lit(PAL.white, 0.86),
+    spine: lit(PAL.slate, 1.05), pageA: PAL.white, pageB: lit(PAL.white, 0.86),
   });
   // 箔押しの飾り罫（文字は描かない。読めない罫だけ）
   for (let r = 10; r < 13; r++) P(AX + r * SH + 12, AY + r, 58, 1, PAL.gold);
@@ -345,7 +360,7 @@ ART.books = () => {
   P(BX + 4, BY + BH + BTH + 2, BW + 2, 3, '#241606');
   _c.globalAlpha = 1;
   const b = _bookSolid(BX, BY, BW, BH, BTH, SH, WORN, {
-    worn: true, spine: lit(PAL.red, 0.42),
+    worn: true, spine: lit(PAL.red, 0.72),
     pageA: lit(PAL.paper, 0.88), pageB: lit(PAL.paper, 0.66),   // 焼けて黄ばんだ小口
   });
   // 背割れ（左のふくらみに走る白い筋。位置も長さもバラして「等間隔の穴」に見せない）
