@@ -59,15 +59,28 @@ console.log('T2 強引ルート');
   check(`全B×B 総合${sim.rank}はS/Aでない`, sim.rank !== 'S' && sim.rank !== 'A');
 }
 
-// T2b: おいしい案件（買ったリスト）→ 本体は増えるが総額は落ちる＝罠として機能する
-console.log('T2b おいしい案件は罠');
+// T2b: 👑（小ネタで正解すると出る選択肢）は、踏んだときだけ効く
+console.log('T2b 👑の解禁');
 {
-  const clean = Econ.simulate(route('A', 'A', konetaAll(), { 11: { b: 'D', s: 'D' } }));
-  const bought = Econ.simulate(route('A', 'A', konetaAll({ K2: 'A' }), { 11: { b: 'D', s: 'D' } }));
-  check(`買うとフロントは増える ${clean.buyers}→${bought.buyers}本`, bought.buyers > clean.buyers);
-  check(`なのに総額は落ちる ${(clean.sales / M).toFixed(0)}M→${(bought.sales / M).toFixed(0)}M`,
-    bought.sales < clean.sales);
-  check(`買ったら史実に届かない`, bought.sales < CONF.HISTORIC);
+  const withK = Econ.simulate(route('A', 'A', konetaAll(), { 11: { b: 'D', s: 'D' } }));
+  // 小ネタを全部外すと👑は1つも出ない＝同じA×Aでも売上が落ちる
+  const noK = {};
+  for (const k of KONETA) {
+    noK[k.id] = (k.choices.find(c => !c.good) || k.choices[0]).key;
+    if (k.then) noK[k.id + '_2'] = (k.then.choices.find(c => !c.good)).key;
+  }
+  const without = Econ.simulate(route('A', 'A', noK, { 11: { b: 'D', s: 'D' } }));
+  check(`👑あり ${(withK.sales / M).toFixed(0)}M > 👑なし ${(without.sales / M).toFixed(0)}M`,
+    withK.sales > without.sales);
+  check(`👑を踏むラウンドは7つ`, ROUNDS.filter(r => r.crown).length === 7);
+  check(`👑の解禁元は全て実在する小ネタ`,
+    ROUNDS.filter(r => r.crown).every(r => {
+      const k = KONETA.find(x => x.id === r.crown.from);
+      return k && k.choices.some(c => c.key === r.crown.pick && c.good);
+    }));
+  check(`👑は差し替え先と同じ型（特殊ラウンドの判定が壊れない）`,
+    ROUNDS.filter(r => r.crown).every(r =>
+      r[r.crown.slot].some(x => x.t === r.crown.item.t)));
 }
 
 // T3: 全D×D → リストが焼け、売上≤80M
@@ -91,15 +104,13 @@ console.log('T4 凡打ルート');
 console.log('T5 不変条件');
 {
   let bad = 0, n = 0, lo = Infinity, hi = -Infinity;
-  for (const b of 'ABCD') for (const s of 'ABCD')
-    for (const k2 of ['A', 'C']) {
-      const sim = Econ.simulate(route(b, s, konetaAll({ K2: k2 })));
-      n++;
-      if (sim.list < 0) bad++;
-      const cap = CONF.LIST0 + (k2 !== 'C' ? CONF.OISHII_ADD : 0);
-      if (sim.unsub + sim.buyers + sim.list !== cap) bad++;
-      if (sim.sales < lo) lo = sim.sales; if (sim.sales > hi) hi = sim.sales;
-    }
+  for (const b of 'ABCD') for (const s of 'ABCD') {
+    const sim = Econ.simulate(route(b, s));
+    n++;
+    if (sim.list < 0) bad++;
+    if (sim.unsub + sim.buyers + sim.list !== CONF.LIST0) bad++;
+    if (sim.sales < lo) lo = sim.sales; if (sim.sales > hi) hi = sim.sales;
+  }
   check(`${n}ルート リスト非負・収支一致`, bad === 0, `bad=${bad}`);
   console.log(`  （値域 ${(lo / M).toFixed(0)}M〜${(hi / M).toFixed(0)}M）`);
 }

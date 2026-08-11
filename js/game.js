@@ -24,8 +24,8 @@ const Econ = {
     const C = CONF;
     let list = C.LIST0, buyers = 0, upsells = 0, unsub = 0, sales = 0;
     let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
-    let calm = 0, oishii = false, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
-    let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false, kizPt = 0, storyOn = false;
+    let calm = 0, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
+    let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false, kizPt = 0;
     const log = [];
     const konetaAfter = {}; KONETA.forEach(k => konetaAfter[k.after] = k);
 
@@ -57,8 +57,10 @@ const Econ = {
         if (b.t === 'B') conv *= 0.55;          // 価格の不安は既に解けている＝空振り
         if (b.t === 'C') conv *= 1.15;
       }
-      // 七日間戦争を読み返していれば、次の一通の物語型の件名が効く
-      if (storyOn && round.storySubj && s.t === 'A') { conv *= 1.25; storyOn = false; }
+      // 👑: 直前の小ネタで正解したときだけ出る選択肢。選べば成約率が上がる
+      const cr = round.crown;
+      if (cr && chosen.koneta && chosen.koneta[cr.from] === cr.pick
+        && (cr.slot === 'bodies' ? b.t : s.t) === cr.item.t) conv *= C.CROWN_CONV;
       let trueEnd = false;
       if (round.special === 'r12_true_end' && b.t === 'D') {
         if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; sawTrueEnd = true; }
@@ -66,7 +68,6 @@ const Econ = {
       }
       // 解除率
       let uRate = C.UNSUB_BASE[b.t] * pair.unsub * (1 + stim * C.STIM_UNSUB);
-      if (oishii) uRate *= C.OISHII_UNSUB_MULT;
       if (trueEnd) uRate *= 0.5;
 
       const dBuy = Math.round(list * open * conv);
@@ -80,7 +81,6 @@ const Econ = {
       if (cls === 'tsuri') upRate += C.UP.tsuri;
       if (b.tone === 'hype' || b.hiddenTone) upRate += C.UP.hype;
       if (b.tone === 'ego') upRate += C.UP.ego;
-      if (oishii) upRate *= C.OISHII_UP_MULT;   // 買ったリストは200万まで来ない
       upRate = Math.max(C.UP.min, Math.min(C.UP.max, upRate));
       const dUp = Math.round(dBuy * upRate);
       buyers += dBuy; upsells += dUp; unsub += dUnsub;
@@ -112,15 +112,10 @@ const Econ = {
           if (good) { kizukai++; calm++; } else stim += 0.05;
           if (c2 && c2.good) kizukai++;              // 返信した＝相手を放置しない
         }
-        if (k.effect === 'oishii') {
-          if (!good) { list += C.OISHII_ADD; oishii = true; trust += C.OISHII_TRUST; badKoneta++; }
-          if (c2 && c2.good) rikai += 4;             // 面倒な案件を選ぶ＝勝ちパターン
-        }
         if (k.effect === 'kizukai') { if (good) kizukai++; else badKoneta++; }
         if (k.effect === 'ise') {
           if (good) { kizukai++; rikai += 8; } else { stim += 0.10; badKoneta++; }
         }
-        if (k.effect === 'story' && good) storyOn = true;      // 物語の件名が解禁される
         if (k.effect === 'shuchu') {
           if (good) { calm++; expect += 8; } else stim += 0.06;   // 集中＝刺激を1回打ち消す
         }
@@ -283,7 +278,7 @@ function paintHud(clock) {
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
   // 見込み客ゲージ（体力）。買われたぶんも解除されたぶんも削れる
-  const cap = CONF.LIST0 + (S.koneta.K2 === 'A' ? CONF.OISHII_ADD : 0);
+  const cap = CONF.LIST0;
   $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
@@ -522,6 +517,14 @@ function composeMail(idx, subjText, withBody) {
   return mail;
 }
 
+/* 直前の小ネタで正解していたら、その回の選択肢を1つだけ👑に差し替える。
+   件名側か本文側かは round.crown.slot が持つ */
+function withCrown(round, slot) {
+  const cr = round.crown;
+  if (!cr || cr.slot !== slot || S.koneta[cr.from] !== cr.pick) return round[slot];
+  return round[slot].map(x => (x.t === cr.item.t ? cr.item : x));
+}
+
 async function runRound(round) {
   const idx = ROUNDS.indexOf(round);
   syncHudTo(idx); paintHud(round.clock);
@@ -540,12 +543,10 @@ async function runRound(round) {
   for (;;) {
     stage().innerHTML = ''; choicesEl().innerHTML = '';
     stage().appendChild(composeMail(idx, null, false));
-    // 七日間戦争を読み返していれば、件名Aが物語型に入れ替わる
-    const subs = round.storySubj && S.koneta.K8 === 'C'
-      ? round.subjects.map(x => (x.t === 'A' ? round.storySubj : x)) : round.subjects;
-    subj = await pickChoice(subs, '件名を選ぶ', s => `「${s.text}」`);
+    subj = await pickChoice(withCrown(round, 'subjects'), '件名を選ぶ', s => `「${s.text}」`);
     stage().innerHTML = ''; stage().appendChild(composeMail(idx, subj.text, true));
-    body = await pickChoice(round.bodies, null, b => b.text, { redo: '← 件名を選び直す' });
+    body = await pickChoice(withCrown(round, 'bodies'), null, b => b.text,
+      { redo: '← 件名を選び直す' });
     if (body !== REDO) break;
     Sfx.play('ui');
   }
