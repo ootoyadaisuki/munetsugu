@@ -205,7 +205,7 @@ const $ = s => document.querySelector(s);
 const FAST = location.search.includes('autotest');
 const POLICY = location.search.includes('policy=worst') ? 'worst'
   : location.search.includes('policy=hype') ? 'hype' : 'best';
-const SAVE_KEY = 'munetsugu_save_v5';
+const SAVE_KEY = 'munetsugu_save_v6';   // FLOWからresultを外したので旧セーブは捨てる
 
 /* 周回の世代。タイトルへ戻るたびに +1 する。
    古い周回が待っている await（タップ送り・選択待ち・演出待ち）は、
@@ -222,7 +222,9 @@ const wait = ms => FAST ? gate(r => r()) : gate(r => setTimeout(r, ms));
 // 進行: opening → keisho → R1..R12（小ネタはラウンド直後に挟む）→ result → ranks → ending
 const FLOW = ['opening', 'keisho'];
 ROUNDS.forEach(r => { FLOW.push(r.id); const k = KONETA.find(x => x.after === r.id); if (k) FLOW.push(k.id); });
-FLOW.push('result', 'verdict', 'ranks', 'ending');
+/* 'result'（青い総額の画面）は verdict に統合した。
+   同じ総額と同じ差額を、2画面続けて見せていたため */
+FLOW.push('verdict', 'ranks', 'ending');
 
 let S = load() || freshState();
 function freshState(meta) {
@@ -278,7 +280,7 @@ const BEAT_ART = { opening: 'face_normal', keisho: 'lp_page',
   /* K3（差し入れ）は最初に絵を出さない。まだ何も買ってきていないのに
      物が机に乗っていると、話の順番が合わない。正しく注文できたときだけ出す */
   K2: 'phone_flip', K5: 'phone_flip', K8: 'books',
-  result: 'result_bg', verdict: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
+  verdict: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
 /* セールス中は部屋を出さない。売上のペースで変わる顔だけを見せる */
 function beatArt(beat) { return BEAT_ART[beat] || moodKey(); }
 /* 絵の時刻を進める。ラウンド＝1時間なので、9:00→20:00と移り、
@@ -513,7 +515,6 @@ async function runBeat() {
   switch (beat) {
     case 'opening': return runOpening();
     case 'keisho': return runKeisho();
-    case 'result': return runResult();
     case 'verdict': return runVerdict();
     case 'ranks': return runRanks();
     case 'ending': return runEnding();
@@ -903,13 +904,15 @@ async function runKoneta(k) {
   next();
 }
 
-async function runResult() {
+async function runVerdict() {
   const sim = Econ.simulate(chosen());
+  const E = TEXTS.ending;
+  choicesEl().innerHTML = '';
+  /* 18:00。最後の購入が入り、カウンターが止まる。
+     12通ぶんの山なので、結果の板を出す前にここだけは見せる */
   $('#hud-clock').textContent = 'セールス終了';
   $('#hud-clock').classList.add('urgent');
-  // 最後の購入が入り、カウンター停止
   stage().innerHTML = `<div class="lastcount"><div class="lc-clock">18:00</div><div class="lc-num"></div></div>`;
-  choicesEl().innerHTML = '';
   if (!FAST) Sfx.rush(true, 100);
   const numEl = stage().querySelector('.lc-num');
   await tween(Math.max(0, sim.sales - 12000000), sim.sales, 2600, v => {
@@ -917,24 +920,6 @@ async function runResult() {
   });
   Sfx.rush(false);
   await wait(800);
-  const diff = sim.sales - CONF.HISTORIC;
-  Sfx.play(sim.win ? 'win' : 'lose');
-  stage().innerHTML = `<div class="result-wrap ${sim.win ? 'win' : 'lose'}">
-    <div class="res-num">${fmtYen(sim.sales)}</div>
-    <div class="res-label">史実 ${fmtYen(CONF.HISTORIC)}　${diff >= 0 ? '+' : '−'}${fmtYen(Math.abs(diff)).slice(1)}</div>
-    <div class="res-break">フロント ${fmtNum(sim.buyers)}本 ${fmtYenKanji(sim.buyers * CONF.UNIT)}
-      ／ アップセル ${fmtNum(sim.upsells)}本 ${fmtYenKanji(sim.upsells * CONF.UPSELL)}</div>
-    <div class="res-copy">${sim.win ? TEXTS.result.win : TEXTS.result.lose}</div></div>`;
-  await wait(900);
-  await new Promise(r => tapToContinue(r));
-  next();
-}
-
-/* 勝敗の宣告。評価画面の前に、超えたか超えなかったかだけを見せる */
-async function runVerdict() {
-  const sim = Econ.simulate(chosen());
-  const E = TEXTS.ending;
-  choicesEl().innerHTML = '';
   /* 勝ちも負けも、史実との差額を主役にする。
      「いくら足りなかったのか」が分からないと、もう一度やる気にならない */
   const gap = Math.abs(sim.sales - CONF.HISTORIC);
@@ -949,7 +934,8 @@ async function runVerdict() {
       <div class="game-clear">${E.clear}</div>
       <div class="clear-sub">${E.clearSub}</div>
       ${board}
-      <div class="gap-big win">史実を <b>${fmtYenKanji(gap)}</b> 上回った</div></div>`;
+      <div class="gap-big win">史実を <b>${fmtYenKanji(gap)}</b> 上回った</div>
+      <div class="verdict-copy">${TEXTS.result.win}</div></div>`;
   } else {
     Sfx.play('lose');
     stage().innerHTML = `<div class="clear-wrap">
@@ -957,7 +943,7 @@ async function runVerdict() {
       <div class="notyet-lines">${E.notYetLines.filter(Boolean).join('<br>')}</div>
       ${board}
       <div class="gap-big lose">あと <b>${fmtYenKanji(gap)}</b> 足りなかった</div>
-      <div class="clear-sub">${E.notYetSub}</div></div>`;
+      <div class="verdict-copy">${TEXTS.result.lose}</div></div>`;
   }
   await wait(1600);
   await new Promise(r => tapToContinue(r));

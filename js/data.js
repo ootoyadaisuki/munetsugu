@@ -727,7 +727,6 @@ const TEXTS = {
     // 史実に届かなかったとき
     notYet: 'GAME OVER',
     notYetLines: ['記録には、届かなかった。'],
-    notYetSub: '5億6490万円を超えると、GAME CLEAR。',
     retryLead: '——2009年の村上宗嗣は、まだ超えられていない。',
   },
 };
