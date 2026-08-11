@@ -91,8 +91,13 @@ console.log('T2c メンタル');
   check(`正直ルートは削れない（${good.mental}）`, good.mental >= 90);
   check(`煽りルートは底を打つ（${hype.mental}）`, hype.mental <= 5);
   check(`メンタル100では💀ゼロ`, Econ.killTones(100).length === 0);
-  check(`メンタル0では ego/hype/flat が💀`, Econ.killTones(0).length === 3);
-  check(`💀が増えるほど正直だけが安全`, Econ.killTones(0).indexOf('honest') === -1);
+  check(`メンタル50ではegoだけが💀`, Econ.killTones(50).join() === 'ego');
+  check(`メンタル35でego/hypeが💀・正直はまだ安全`,
+    Econ.killTones(35).length === 2 && Econ.killTones(35).indexOf('honest') === -1);
+  // 30を切ったら正解が一つも無い＝💀は「正解を教えるヒント」ではなくなる
+  check(`メンタル29では全ての型が💀`, Econ.killTones(29).length === 4);
+  check(`メンタル29では正直も💀`, Econ.killTones(29).indexOf('honest') >= 0);
+  check(`isBrokenの境目は30`, !Econ.isBroken(30) && Econ.isBroken(29));
   // 疲れているとアップセルが取れなくなる
   const lo = Econ.simulate(route('A', 'A', konetaAll(), { 11: { b: 'D', s: 'D' } }));
   check(`アップセル率はメンタルに連動（最終${lo.mental}）`, lo.upsells > 0 && lo.mental > 50);

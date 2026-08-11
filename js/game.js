@@ -15,6 +15,8 @@ const Econ = {
     const t = opt.hiddenTone ? 'hype' : opt.tone;
     return this.killTones(mental).includes(t);
   },
+  /* 全部が💀＝正解が無い状態。ここから先は書き方では戻せない */
+  isBroken(mental) { return mental < CONF.MENTAL.broken; },
   pairClass(round, bIdx, sIdx) {
     const b = round.bodies[bIdx], s = round.subjects[sIdx];
     const bt = b.hiddenTone ? 'hype' : b.tone;   // R10-D: honestの顔をしたhype
@@ -208,7 +210,7 @@ FLOW.push('result', 'verdict', 'ranks', 'ending');
 
 let S = load() || freshState();
 function freshState(meta) {
-  return { beat: 0, rounds: [], koneta: {}, pending: null,
+  return { beat: 0, rounds: [], koneta: {}, pending: null, brokenSeen: false,
     best: meta ? meta.best : null, clears: meta ? meta.clears : 0 };
 }
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
@@ -458,10 +460,12 @@ function pickChoice(items, label, toText, opts = {}) {
     }
     shuffled(items).forEach(it => {
       const b = document.createElement('button');
-      // 👑＝小ネタで正解すると出る／💀＝いまのメンタルでは特に刺さる
-      const kill = !it.crown && Econ.isKill(it, HUD.mental);
-      b.className = 'choice' + (it.crown ? ' crown' : kill ? ' kill' : '');
-      b.textContent = (it.crown ? '👑 ' : kill ? '💀 ' : '') + toText(it);
+      /* 👑＝小ネタで正解すると出る／💀＝いまのメンタルでは特に刺さる。
+         メンタルが30を切ると👑にも💀が付く＝安全な札が一枚も無くなる */
+      const kill = Econ.isKill(it, HUD.mental) && (!it.crown || Econ.isBroken(HUD.mental));
+      b.className = 'choice' + (it.crown ? ' crown' : '') + (kill ? ' kill' : '');
+      b.textContent = (it.crown ? '👑' : '') + (kill ? '💀' : '')
+        + (it.crown || kill ? ' ' : '') + toText(it);
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
       choicesEl().appendChild(b);
     });
@@ -599,6 +603,15 @@ async function runRound(round) {
   // 復帰: このラウンドが選択済みなら結果表示から
   if (S.rounds[idx]) return showSendResult(round, idx);
 
+  /* メンタルが30を切った最初の一度だけ、状態が変わったことを宣言する。
+     何も言わずに全部💀になると、選択肢が壊れたようにしか見えない */
+  if (Econ.isBroken(HUD.mental) && !S.brokenSeen) {
+    S.brokenSeen = true; save();
+    art('face_cry');
+    Sfx.play('miss');
+    await showLines(TEXTS.broken, { cls: 'center' });
+    art(beatArt(FLOW[S.beat]));
+  }
   // 1. 読者からの質問（独立ページ。無いラウンドは状況ナレーション）
   if (round.question) {
     await showLines([`【第${idx + 1}通】 ${round.clock}`, '', '読者から質問が届いた。', '',
@@ -660,10 +673,10 @@ async function showSendResult(round, idx) {
     Sfx.play('rank');
     await tween(0, step.dUp, 800, v => {
       upEl.innerHTML = `アップセル +${fmtNum(v)}本`
-        + `<span class="send-yen gold">${fmtYenKanji(Math.round(v) * CONF.UPSELL)}</span>`;
+        + `<span class="send-yen">${fmtYenKanji(Math.round(v) * CONF.UPSELL)}</span>`;
     });
   } else {
-    upEl.innerHTML = `アップセル 0本<span class="up-note">（誰も進まなかった）</span>`;
+    upEl.innerHTML = 'アップセル 0本';
     Sfx.play('miss');
   }
   HUD.upsells = simAfter.upsells; paintHud();
@@ -1017,11 +1030,18 @@ window.addEventListener('load', () => {
   if (jm && FLOW.includes(jm[1])) {
     S = freshState();
     const idx = FLOW.indexOf(jm[1]);
-    // 直行: それまでのラウンドは全A×A・小ネタは全good で埋める
+    // 直行: それまでのラウンドは全A×A・小ネタは全good で埋める。
+    // ?fill=B で埋める型を変えられる（メンタルが壊れた状態の確認用）
+    const fm = location.search.match(/fill=([A-D])/);
+    const f = fm ? fm[1] : 'A';
     for (let i = 0; i < ROUNDS.length; i++) {
-      if (FLOW.indexOf(ROUNDS[i].id) < idx) S.rounds[i] = { b: 'A', s: 'A' };
+      if (FLOW.indexOf(ROUNDS[i].id) < idx) S.rounds[i] = { b: f, s: f };
     }
-    KONETA.forEach(k => { if (FLOW.indexOf(k.id) < idx) S.koneta[k.id] = k.choices.find(c => c.good).key; });
+    KONETA.forEach(k => {
+      if (FLOW.indexOf(k.id) >= idx) return;
+      const c = f === 'A' ? k.choices.find(x => x.good) : k.choices.find(x => !x.good);
+      S.koneta[k.id] = (c || k.choices[0]).key;
+    });
     S.beat = idx;
   }
   runBeat();

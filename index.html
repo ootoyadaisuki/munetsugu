@@ -84,10 +84,9 @@
   .send-buy { font-size: 18px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
   .send-unsub { font-size: 18px; color: var(--red); font-weight: bold; font-variant-numeric: tabular-nums; }
   .send-upsell { font-size: 18px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
-  .send-upsell .up-note { font-size: 12px; font-weight: normal; color: var(--dim); }
-  /* 本数の右に金額。フロント10万円とアップセル200万円の差をここで見せる */
-  .send-yen { font-size: 13px; font-weight: normal; color: var(--dim); margin-left: 8px; }
-  .send-yen.gold { color: #d8a83c; }
+  /* 本数の右に金額。フロント10万円とアップセル200万円の差をここで見せる。
+     色を分けると片方が格下に見えるので、2行とも同じ金色にする */
+  .send-yen { font-size: 13px; font-weight: normal; color: #d8a83c; margin-left: 8px; }
   /* メンタルの増減は必ず数字で出す */
   .mental-tag { font-size: 15px; font-weight: bold; text-align: center; margin-top: 8px; }
   .mental-tag .down { opacity: .95; }
@@ -127,6 +126,8 @@
   .choice:active { background: #222a38; border-color: var(--gold); }
   /* 👑＝小ネタで正解したときだけ出る特別な選択肢 */
   .choice.crown { border-color: var(--gold); background: #1e1c14; }
+  /* メンタル30未満では👑にも💀が付く。安全に見えないほうを優先して塗る */
+  .choice.crown.kill { border-color: #6b2a2a; background: #1a1512; color: #c9b7b7; }
   /* 💀＝いまのメンタルでは特に刺さる選択肢。疲れるほど増える */
   .choice.kill { border-color: #6b2a2a; background: #170f12; color: #c9b7b7; }
   /* 直前のタップが選択肢に貫通するのを防ぐ一瞬の無効時間 */
@@ -270,13 +271,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608111349"></script>
-<script src="js/art.js?v=202608111349"></script>
-<script src="js/scenes1.js?v=202608111349"></script>
-<script src="js/scenes2.js?v=202608111349"></script>
-<script src="js/scenes3.js?v=202608111349"></script>
-<script src="js/scenes4.js?v=202608111349"></script>
-<script src="js/sfx.js?v=202608111349"></script>
-<script src="js/game.js?v=202608111349"></script>
+<script src="js/data.js?v=202608111404"></script>
+<script src="js/art.js?v=202608111404"></script>
+<script src="js/scenes1.js?v=202608111404"></script>
+<script src="js/scenes2.js?v=202608111404"></script>
+<script src="js/scenes3.js?v=202608111404"></script>
+<script src="js/scenes4.js?v=202608111404"></script>
+<script src="js/sfx.js?v=202608111404"></script>
+<script src="js/game.js?v=202608111404"></script>
 </body>
 </html>
