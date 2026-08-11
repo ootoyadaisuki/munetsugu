@@ -53,9 +53,10 @@
   .g-mental { color: var(--green); }
   .g-trust { color: #f09a3c; }
   .g-rikai { color: #c79ceb; }
-  #gauge-trust, #gauge-rikai { background: #1b2330; }
-  #trust-fill { height: 100%; width: 0; background: #f09a3c; }   /* 信用＝橙 */
-  #rikai-fill { height: 100%; width: 0; background: #b58ce0; }   /* 顧客理解＝紫 */
+  /* 信用・顧客理解も70%から始まって上下する。削れたぶんは他と同じく赤で残る */
+  #gauge-trust, #gauge-rikai { background: #7a2f2f; }
+  #trust-fill { height: 100%; width: 70%; background: #f09a3c; }   /* 信用＝橙 */
+  #rikai-fill { height: 100%; width: 70%; background: #b58ce0; }   /* 顧客理解＝紫 */
   #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
@@ -84,6 +85,9 @@
   .send-unsub { font-size: 18px; color: var(--red); font-weight: bold; font-variant-numeric: tabular-nums; }
   .send-upsell { font-size: 18px; color: var(--gold); font-weight: bold; font-variant-numeric: tabular-nums; }
   .send-upsell .up-note { font-size: 12px; font-weight: normal; color: var(--dim); }
+  /* 本数の右に金額。フロント10万円とアップセル200万円の差をここで見せる */
+  .send-yen { font-size: 13px; font-weight: normal; color: var(--dim); margin-left: 8px; }
+  .send-yen.gold { color: #d8a83c; }
   /* メンタルの増減は必ず数字で出す */
   .mental-tag { font-size: 15px; font-weight: bold; text-align: center; margin-top: 8px; }
   .mental-tag .down { opacity: .95; }
@@ -199,6 +203,8 @@
   .munedo.hidden { opacity: 0; }
   .munedo-main { font-size: 22px; font-weight: bold; color: var(--gold); }
   .munedo-sub { color: var(--dim); margin-top: 8px; font-size: 13px; }
+  /* 「何を評価されたのか」を1行で。総合ランクとの違いをここで切り分ける */
+  .munedo-note { color: var(--dim); font-size: 11px; line-height: 1.6; margin-top: 5px; }
   .lastword { margin-top: 18px; font-size: 16px; }
 
   .epi-words { text-align: center; margin-top: 10vh; font-size: 18px; letter-spacing: 2px; line-height: 2.2; }
@@ -211,6 +217,17 @@
   .game-over { font-size: 32px; font-weight: bold; color: var(--red); letter-spacing: 5px;
     text-shadow: 3px 3px 0 #3a1010; }
   .notyet-lines { font-size: 16px; line-height: 2; margin-top: 6px; }
+  /* 史実との差額。ここが一番読まれる場所なので、金額を主役にする */
+  .gap-board { margin: 18px auto 10px; max-width: 330px; border: 1px solid var(--line);
+    background: #11151d; padding: 9px 12px; }
+  .gap-row { display: flex; justify-content: space-between; align-items: baseline;
+    gap: 14px; font-size: 12px; color: var(--dim); padding: 3px 0; white-space: nowrap; }
+  .gap-row b { font-size: 17px; color: var(--fg); font-variant-numeric: tabular-nums; }
+  .gap-row + .gap-row { border-top: 1px solid var(--line); }
+  .gap-big { font-size: 16px; margin-top: 12px; }
+  .gap-big b { font-size: 27px; font-variant-numeric: tabular-nums; }
+  .gap-big.lose { color: var(--red); }
+  .gap-big.win { color: var(--gold); }
   .shime { font-size: 16px; } .shime.big { font-size: 24px; font-weight: bold; }
 </style>
 </head>
@@ -253,13 +270,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608111147"></script>
-<script src="js/art.js?v=202608111147"></script>
-<script src="js/scenes1.js?v=202608111147"></script>
-<script src="js/scenes2.js?v=202608111147"></script>
-<script src="js/scenes3.js?v=202608111147"></script>
-<script src="js/scenes4.js?v=202608111147"></script>
-<script src="js/sfx.js?v=202608111147"></script>
-<script src="js/game.js?v=202608111147"></script>
+<script src="js/data.js?v=202608111349"></script>
+<script src="js/art.js?v=202608111349"></script>
+<script src="js/scenes1.js?v=202608111349"></script>
+<script src="js/scenes2.js?v=202608111349"></script>
+<script src="js/scenes3.js?v=202608111349"></script>
+<script src="js/scenes4.js?v=202608111349"></script>
+<script src="js/sfx.js?v=202608111349"></script>
+<script src="js/game.js?v=202608111349"></script>
 </body>
 </html>

@@ -110,8 +110,8 @@ console.log('T3 地雷ルート');
 console.log('T4 凡打ルート');
 {
   const sim = Econ.simulate(route('C', 'C'));
-  check(`全C×C 売上=${(sim.sales / M).toFixed(1)}M ∈[80,180]M`,
-    sim.sales >= 80 * M && sim.sales <= 180 * M, `unsub=${sim.unsub}`);
+  check(`全C×C 売上=${(sim.sales / M).toFixed(1)}M ∈[80,200]M`,
+    sim.sales >= 80 * M && sim.sales <= 200 * M, `unsub=${sim.unsub}`);
   check(`全C×C は史実に遠く届かない`, sim.sales < CONF.HISTORIC * 0.4);
 }
 

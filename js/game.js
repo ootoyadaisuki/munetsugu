@@ -160,13 +160,6 @@ const Econ = {
     const satisfy = Math.max(0, Math.min(100,
       Math.round(100 - (unsub / C.LIST0) * 180 + Math.min(10, trust / 8))));
     const win = sales > C.HISTORIC;
-    // 総合ランク: 表（史実超え）と裏（リストを焼かない）の両立
-    let rank;
-    if (win && unsub <= C.RANK_S.unsub && satisfy >= C.RANK_S.satisfy) rank = 'S';
-    else if (win && unsub <= C.RANK_A.unsub) rank = 'A';
-    else if (win) rank = 'B';
-    else if (sales >= 450000000) rank = 'C';
-    else rank = 'D';
     /* 村上宗嗣度: 減点法ではなく積み上げ。「村上宗嗣ならこう書いた」への一致率。
        100点は簡単には出ない。売上が出ていても、やり方が違えば伸びない。 */
     const M = C.MUNE;
@@ -174,13 +167,23 @@ const Econ = {
     munedo += honestCnt * M.honest;                        // 正直に書いた通数（12通ぶん）
     munedo += Math.min(M.rikaiCap, Math.max(0, rikai) * M.rikai);   // 顧客理解
     munedo += Math.min(M.trustCap, Math.max(0, trust) * M.trust);   // 思いやり
-    munedo += kizukai * M.kizukai;                          // 気遣い（小ネタ）
+    munedo += Math.min(M.kizCap, kizPt * M.kizukai);       // 気遣いポイント
     if (sawTrueEnd) munedo += M.trueEnd;                    // 買わなかった人への最後の一通
     munedo -= tsuriCnt * M.tsuri;                           // 釣り
     munedo -= sekkyoCnt * M.sekkyo;                         // 上から言った
     munedo -= badKoneta * M.badKoneta;
     munedo -= Math.min(M.burnCap, unsub / (C.LIST0 * M.burnUnit));  // 焼いたリスト
     munedo = Math.max(0, Math.min(100, Math.round(munedo)));
+    /* 総合ランク: 表（史実超え）と裏（リストを焼かない）の両立。
+       ただし「やり方は村上宗嗣だったが、あと少し届かなかった」を C に落とさない。
+       全部Sの行の下に C が出ると、何を評価されたのか分からなくなる */
+    let rank;
+    if (win && unsub <= C.RANK_S.unsub && satisfy >= C.RANK_S.satisfy) rank = 'S';
+    else if (win && unsub <= C.RANK_A.unsub) rank = 'A';
+    else if (win) rank = 'B';
+    else if (sales >= C.HISTORIC * C.NEAR.sales && munedo >= C.NEAR.munedo) rank = 'B';
+    else if (sales >= 450000000) rank = 'C';
+    else rank = 'D';
     return { sales, buyers, upsells, unsub, list, mental, trust, rikai, expect, stim, kizukai, kizPt, satisfy,
       win, rank, munedo, tsuriCnt, egoCnt, honestCnt, sekkyoCnt, badKoneta, trueEnd: sawTrueEnd, log };
   },
@@ -295,6 +298,14 @@ function remainLabel(clock) {
 let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0,
   mental: CONF.MENTAL.start, trust: 0, rikai: 0 };
 let atTitle = false;      // メニューから戻ってきたタイトル表示中（セーブは消さない）
+/* 信用・顧客理解のゲージ幅。0 が GAUGE_BASE（=70%）で、そこから上下に振れる。
+   上は max で100%、下は min で0%。積むより削るほうが目盛りが粗い＝失うほうが速い */
+function pctBase(v, max, min) {
+  const b = CONF.GAUGE_BASE;
+  const w = v >= 0 ? b + (100 - b) * Math.min(1, v / max)
+    : b * (1 - Math.min(1, v / min));
+  return Math.max(0, Math.min(100, w)) + '%';
+}
 function paintHud(clock) {
   const beat = FLOW[S.beat];
   const inGame = !atTitle && !['opening', 'keisho', 'verdict', 'ranks', 'ending'].includes(beat);
@@ -322,8 +333,8 @@ function paintHud(clock) {
   // 緑が残りのメンタル。削れたぶんは見込み客ゲージと同じく赤で残る
   const pct = (v, max) => Math.max(0, Math.min(100, v / max * 100)) + '%';
   $('#mental-fill').style.width = pct(HUD.mental, 100);
-  $('#trust-fill').style.width = pct(HUD.trust, CONF.TRUST_MAX);
-  $('#rikai-fill').style.width = pct(HUD.rikai, CONF.RIKAI_MAX);
+  $('#trust-fill').style.width = pctBase(HUD.trust, CONF.TRUST_MAX, CONF.TRUST_MIN);
+  $('#rikai-fill').style.width = pctBase(HUD.rikai, CONF.RIKAI_MAX, CONF.RIKAI_MIN);
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
   const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
@@ -397,10 +408,20 @@ function tapToContinue(res) {
   const hint = document.createElement('div');
   hint.className = 'taphint'; hint.textContent = '▼';
   stage().appendChild(hint);
-  const h = () => { document.removeEventListener('pointerdown', h); hint.remove(); res(); };
+  const h = e => {
+    if (isChrome(e)) return;                 // ☰とメニューは「送り」にしない
+    document.removeEventListener('pointerdown', h); hint.remove(); res();
+  };
   setTimeout(() => document.addEventListener('pointerdown', h), 120);
 }
-document.addEventListener('pointerdown', () => { if (typing) skipType = true; });
+/* ☰ボタンとメニューの中は、本文の送り・早送りの対象外。
+   stopPropagation は click にしか効かず、送りは pointerdown で拾っているため
+   ここで弾かないと「メニューを開いた瞬間に1ページ進む」ことになる */
+function isChrome(e) {
+  const t = e && e.target;
+  return !!(t && t.closest && t.closest('#menu-btn, .menu-pop'));
+}
+document.addEventListener('pointerdown', e => { if (typing && !isChrome(e)) skipType = true; });
 
 /* ---- 選択肢（表示順シャッフル） ---- */
 let seed = 20090928;
@@ -626,14 +647,21 @@ async function showSendResult(round, idx) {
   Sfx.play('correct');
   await wait(300);
   const buyEl = stage().querySelector('.send-buy');
-  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `フロント +${fmtNum(v)}本`; });
+  // 本数だけだと10万円と200万円の差が見えない。1通ごとに金額を並べる
+  await tween(0, step.dBuy, 700, v => {
+    buyEl.innerHTML = `フロント +${fmtNum(v)}本`
+      + `<span class="send-yen">${fmtYenKanji(Math.round(v) * CONF.UNIT)}</span>`;
+  });
   HUD.buyers = simAfter.buyers; paintHud();
   // アップセル: 買った人のうち何人が¥2,000,000へ進んだか（信用がなければ0人）
   await wait(500);
   const upEl = stage().querySelector('.send-upsell');
   if (step.dUp > 0) {
     Sfx.play('rank');
-    await tween(0, step.dUp, 800, v => { upEl.textContent = `アップセル +${fmtNum(v)}本`; });
+    await tween(0, step.dUp, 800, v => {
+      upEl.innerHTML = `アップセル +${fmtNum(v)}本`
+        + `<span class="send-yen gold">${fmtYenKanji(Math.round(v) * CONF.UPSELL)}</span>`;
+    });
   } else {
     upEl.innerHTML = `アップセル 0本<span class="up-note">（誰も進まなかった）</span>`;
     Sfx.play('miss');
@@ -859,17 +887,28 @@ async function runVerdict() {
   const sim = Econ.simulate(chosen());
   const E = TEXTS.ending;
   choicesEl().innerHTML = '';
+  /* 勝ちも負けも、史実との差額を主役にする。
+     「いくら足りなかったのか」が分からないと、もう一度やる気にならない */
+  const gap = Math.abs(sim.sales - CONF.HISTORIC);
+  const board = `<div class="gap-board">
+      <div class="gap-row"><span>あなた</span><b>${fmtYenKanji(sim.sales)}</b></div>
+      <div class="gap-row"><span>2009年の村上宗嗣</span><b>${fmtYenKanji(CONF.HISTORIC)}</b></div>
+    </div>`;
   if (sim.win) {
     art('epilogue_sky');
     Sfx.play('clear');
     stage().innerHTML = `<div class="clear-wrap">
       <div class="game-clear">${E.clear}</div>
-      <div class="clear-sub">${E.clearSub}</div></div>`;
+      <div class="clear-sub">${E.clearSub}</div>
+      ${board}
+      <div class="gap-big win">史実を <b>${fmtYenKanji(gap)}</b> 上回った</div></div>`;
   } else {
     Sfx.play('lose');
     stage().innerHTML = `<div class="clear-wrap">
       <div class="game-over">${E.notYet}</div>
       <div class="notyet-lines">${E.notYetLines.filter(Boolean).join('<br>')}</div>
+      ${board}
+      <div class="gap-big lose">あと <b>${fmtYenKanji(gap)}</b> 足りなかった</div>
       <div class="clear-sub">${E.notYetSub}</div></div>`;
   }
   await wait(1600);
@@ -887,7 +926,10 @@ async function runRanks() {
     : sim.rikai >= 16 ? 'B' : 'C';
   const omoiRank = sim.trust >= 68 ? 'SS' : sim.trust >= 48 ? 'S' : sim.trust >= 28 ? 'A'
     : sim.trust >= 12 ? 'B' : 'C';
-  const kizRank = sim.kizukai >= 3 ? 'S' : sim.kizukai === 2 ? 'B' : sim.kizukai === 1 ? 'C' : 'D';
+  /* 気遣いポイント＝正直に書いた1通ごとに8pt、小ネタで人に向き合うと6〜12pt。
+     これがそのまま村上宗嗣度に乗る（最大13点ぶん）ので、pt を見せて等級もptで決める */
+  const kizRank = sim.kizPt >= 130 ? 'S' : sim.kizPt >= 100 ? 'A' : sim.kizPt >= 70 ? 'B'
+    : sim.kizPt >= 40 ? 'C' : 'D';
   const salesRank = sim.win ? 'S' : sim.sales >= 500000000 ? 'A' : sim.sales >= 400000000 ? 'B' : 'C';
   const rows = [
     ['売上', salesRank], ['コピー', copyRank], ['顧客理解', rikaiRank], ['思いやり', omoiRank],
@@ -900,6 +942,8 @@ async function runRanks() {
     <div class="munedo hidden">
       <div class="sogo">総合　<span class="sogo-rank">${sim.rank}</span></div>
       <div class="munedo-main">村上宗嗣度　${sim.munedo}%</div>
+      <div class="munedo-note">売上ではなく、書き方で決まる。<br>
+        正直に書いた通数・顧客理解・思いやり・気遣いポイントの積み上げ</div>
       <div class="munedo-sub"></div></div></div>`;
   choicesEl().innerHTML = '';
   const rowsEl = stage().querySelector('.rank-rows');
@@ -915,7 +959,9 @@ async function runRanks() {
   const mune = stage().querySelector('.munedo');
   mune.classList.remove('hidden');
   // 「5億超えたのにBなの？」の一言
-  if (sim.rank === 'B') mune.querySelector('.munedo-sub').textContent = TEXTS.result.rankB_note;
+  // Bは2通りある。「焼いて超えた」と「焼かずに、あと少しで届かなかった」
+  if (sim.rank === 'B') mune.querySelector('.munedo-sub').textContent =
+    sim.win ? TEXTS.result.rankB_note : TEXTS.result.rankB_near;
   else if (sim.rank === 'S') mune.querySelector('.munedo-sub').textContent = '——リストを焼かず、記録を超えました。';
   Sfx.play(sim.rank === 'S' ? 'win' : 'ui');
   if (!S.best || 'SABCD'.indexOf(sim.rank) < 'SABCD'.indexOf(S.best)) S.best = sim.rank;
