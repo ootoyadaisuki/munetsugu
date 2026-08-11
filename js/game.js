@@ -266,6 +266,7 @@ function paintHud(clock) {
   const inGame = !atTitle && !['opening', 'keisho', 'verdict', 'ranks', 'ending'].includes(beat);
   $('#hud').style.display = inGame ? '' : 'none';
   $('#timebar').style.display = inGame ? '' : 'none';
+  $('#menu-btn').style.display = inGame ? '' : 'none';
   if (!inGame) return;
   if (artKey && artKey.startsWith('face_') && artKey !== 'face_normal') art(moodKey());
   if (clock) {

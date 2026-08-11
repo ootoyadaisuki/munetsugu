@@ -25,8 +25,9 @@
   }
   /* 左に本数、右に金額。金額は 総売上 → 史実まで の順で縦に並ぶ */
   /* 左に本数を2段、右に金額を2段。左右の縦幅が揃う */
-  .hud-top { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
-  .hud-counts { display: flex; flex-direction: column; gap: 1px; font-size: 11px; }
+  .hud-top { display: flex; align-items: center; gap: 8px; white-space: nowrap;
+    padding-right: 38px; }   /* 右上の☰のぶんを空ける */
+  .hud-counts { display: flex; flex-direction: column; gap: 1px; font-size: 10px; }
   .hud-money { margin-left: auto; display: flex; flex-direction: column;
     align-items: flex-end; gap: 1px; }
   .hud-sales-row { display: flex; align-items: baseline; gap: 6px; }
@@ -45,10 +46,13 @@
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
   #timebar { padding: 4px 14px; text-align: center; background: #11151d;
-    border-bottom: 2px solid var(--line); flex-shrink: 0; position: relative; }
-  #menu-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    background: none; border: 1px solid var(--line); color: var(--dim); font-size: 12px;
-    padding: 2px 8px; cursor: pointer; font-family: inherit; border-radius: 2px; }
+    border-bottom: 2px solid var(--line); flex-shrink: 0; }
+  /* 画面のいちばん右上。金枠でHUDの数字から独立させる */
+  #menu-btn { position: absolute; top: 4px; right: 6px; z-index: 15;
+    background: var(--panel); border: 2px solid var(--gold); color: var(--gold);
+    font-size: 15px; font-weight: bold; line-height: 1; padding: 6px 9px;
+    cursor: pointer; font-family: inherit; border-radius: 3px; }
+  #menu-btn:active { background: var(--gold); color: var(--panel); }
   .menu-pop { position: absolute; inset: 0; background: rgba(8, 10, 16, .9); z-index: 20;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     gap: 12px; padding: 0 32px; }
@@ -187,6 +191,7 @@
 </head>
 <body>
 <div id="app">
+  <button id="menu-btn" title="メニュー">☰</button>
   <div id="hud">
     <div class="hud-top">
       <span class="hud-counts">
@@ -210,10 +215,7 @@
   <div id="artwrap">
     <canvas id="art" width="360" height="200"></canvas>
   </div>
-  <div id="timebar">
-    <span id="hud-clock">セールス終了まで、あと12時間</span>
-    <button id="menu-btn" title="メニュー">☰</button>
-  </div>
+  <div id="timebar"><span id="hud-clock">セールス終了まで、あと12時間</span></div>
   <div id="stage"></div>
   <div id="choices"></div>
   <div id="spacer"></div>
