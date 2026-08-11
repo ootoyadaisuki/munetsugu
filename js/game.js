@@ -641,7 +641,8 @@ function voicesFor(round, pick, step) {
     const arr = [];
     if (specific) arr.push(specific);
     const n = pool.length;
-    for (let i = 0; i < n; i++) {                     // ラウンドごとに開始位置をずらす
+    // ラウンドごとに開始位置をずらす（ずらし幅2が12ラウンドで一番よく散る）
+    for (let i = 0; i < n; i++) {
       if (arr.length >= 3) break;
       const t = pool[(rIdx * 2 + i) % n];
       if (t && !arr.includes(t)) arr.push(t);
