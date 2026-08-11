@@ -41,16 +41,21 @@
   .gauge { flex: 1; height: 9px; background: #7a2f2f; border: 1px solid var(--line);
     overflow: hidden; }
   .gauge.draining { background: var(--red); }
-  #gauge-fill { height: 100%; width: 100%; background: #4d8ec4; }
+  #gauge-fill { height: 100%; width: 100%; background: #3f7fd0; }   /* 見込み客＝青 */
   /* メンタル＝自分を焼いたか。見込み客ゲージと対になる */
   #gauge-mental { background: #7a2f2f; }
   #mental-fill { height: 100%; width: 100%; background: var(--green); }
-  /* メンタル・信用・顧客理解を1行に。この3つがアップセル＝売上の9割を動かす */
+  /* メンタル・信用・顧客理解を1行に。この3つがアップセル＝売上の9割を動かす。
+     4本とも別の色にして、ラベルの文字色もバーに合わせる＝34pxでも取り違えない */
   .hud-trio { gap: 5px; }
   .hud-trio .gauge { min-width: 34px; }
+  .g-list { color: #6ba4e8; }
+  .g-mental { color: var(--green); }
+  .g-trust { color: #f09a3c; }
+  .g-rikai { color: #c79ceb; }
   #gauge-trust, #gauge-rikai { background: #1b2330; }
-  #trust-fill { height: 100%; width: 0; background: #6bb8ff; }
-  #rikai-fill { height: 100%; width: 0; background: #b58ce0; }
+  #trust-fill { height: 100%; width: 0; background: #f09a3c; }   /* 信用＝橙 */
+  #rikai-fill { height: 100%; width: 0; background: #b58ce0; }   /* 顧客理解＝紫 */
   #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
@@ -224,16 +229,16 @@
       </span>
     </div>
     <div class="hud-gauge-row">
-      <span>見込み客</span>
+      <span class="g-list">見込み客</span>
       <div class="gauge" id="gauge-list"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
     </div>
     <div class="hud-gauge-row hud-trio">
-      <span>メンタル</span>
+      <span class="g-mental">メンタル</span>
       <div class="gauge" id="gauge-mental"><div id="mental-fill"></div></div>
-      <span>信用</span>
+      <span class="g-trust">信用</span>
       <div class="gauge" id="gauge-trust"><div id="trust-fill"></div></div>
-      <span>顧客理解</span>
+      <span class="g-rikai">顧客理解</span>
       <div class="gauge" id="gauge-rikai"><div id="rikai-fill"></div></div>
     </div>
   </div>
