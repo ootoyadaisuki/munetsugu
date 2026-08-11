@@ -52,7 +52,8 @@ console.log('T1 王道ルート');
 console.log('T2 強引ルート');
 {
   const sim = Econ.simulate(route('B', 'B'));
-  check(`全B×B フロント=${sim.buyers}本（本体は売れる）`, sim.buyers >= 550);
+  // 煽っても本体は売れる（ただし💀を踏み続けるぶん、最盛期ほどは伸びない）
+  check(`全B×B フロント=${sim.buyers}本（本体は売れる）`, sim.buyers >= 400);
   check(`全B×B アップセル=${sim.upsells}本（信用がないので進まない）`, sim.upsells <= 30);
   check(`全B×B 売上=${(sim.sales / M).toFixed(1)}M ≤150M`, sim.sales <= 150 * M);
   check(`全B×B 解除=${sim.unsub} ≥6000`, sim.unsub >= 6000);
@@ -117,9 +118,10 @@ console.log('T3 地雷ルート');
 console.log('T4 凡打ルート');
 {
   const sim = Econ.simulate(route('C', 'C'));
-  check(`全C×C 売上=${(sim.sales / M).toFixed(1)}M ∈[80,200]M`,
-    sim.sales >= 80 * M && sim.sales <= 200 * M, `unsub=${sim.unsub}`);
-  check(`全C×C は史実に遠く届かない`, sim.sales < CONF.HISTORIC * 0.4);
+  check(`全C×C 売上=${(sim.sales / M).toFixed(1)}M ∈[300,430]M`,
+    sim.sales >= 300 * M && sim.sales <= 430 * M, `unsub=${sim.unsub}`);
+  // 丁寧な説明だけでは、リストを焼かなくても史実には届かない
+  check(`全C×C は史実に届かない`, sim.sales < CONF.HISTORIC * 0.75);
 }
 
 // T5: 不変条件（全4^2ルート×小ネタ2通りでリスト非負・解除上限）

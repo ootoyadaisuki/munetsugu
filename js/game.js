@@ -57,6 +57,9 @@ const Econ = {
       if (b.tone === 'honest' && !b.hiddenTone) { honestCnt++; kizPt += C.KIZ_PT_HONEST; }
       if (b.tone === 'ego' || s.tone === 'ego') sekkyoCnt++;
 
+      /* いまのメンタルで💀になっている型を選んだか。
+         印を付けるだけでは意味がないので、この通の出来そのものを落とす */
+      const killed = this.isKill(b, mental) || this.isKill(s, mental);
       // 開封率
       let open = C.SUBJ_OPEN[s.t] * (1 + stim * C.STIM_OPEN) * (1 - r * C.FATIGUE);
       open = Math.min(0.9, Math.max(0.05, open));
@@ -78,8 +81,11 @@ const Econ = {
         if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; sawTrueEnd = true; }
         else conv *= 0.85;
       }
+      // 疲れ切って書いた通＝刺さらないし、読者も離れる
+      if (killed) conv *= C.MENTAL.killConv;
       // 解除率
       let uRate = C.UNSUB_BASE[b.t] * pair.unsub * (1 + stim * C.STIM_UNSUB);
+      if (killed) uRate *= C.MENTAL.killUnsub;
       if (trueEnd) uRate *= 0.5;
 
       const listBefore = list;
@@ -115,7 +121,6 @@ const Econ = {
       /* メンタル。正直に書けば少し戻り、煽り・上から・釣りで削れる。
          解除がまとまって出た通も刺さる。💀を選んでいれば追加で削れる */
       const M = C.MENTAL;
-      const killed = this.isKill(b, mental) || this.isKill(s, mental);
       let dM = -M.drain + (M.tone[b.tone] || 0);
       if (cls === 'tsuri') dM += M.tsuri;
       if (dUnsub > listBefore * M.burnAt) dM += M.burn;
@@ -735,6 +740,14 @@ async function showSendResult(round, idx) {
   }
   HUD.mental = step.mental;
   HUD.trust = simAfter.trust; HUD.rikai = simAfter.rikai; paintHud();
+  /* 💀を選んだ通は、印だけでなく結果も落ちている。
+     何が起きたのか書かないと、マークがただの飾りに見える */
+  if (step.killed) {
+    const k = document.createElement('div');
+    k.className = 'send-kill'; k.textContent = TEXTS.send.killNote;
+    stage().querySelector('.send-mental').appendChild(k);
+    await wait(500);
+  }
   // 今回の売上（解除の下。1通ぶんの成果をここで締める）
   const dSales = simAfter.sales - simBefore.sales;
   const salesEl = stage().querySelector('.send-sales');
