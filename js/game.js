@@ -127,16 +127,17 @@ const Econ = {
       if (k && chosen.koneta && chosen.koneta[k.id]) {
         const c1 = k.choices.find(c => c.key === chosen.koneta[k.id]);
         const good = c1.good;
-        mental = Math.max(0, Math.min(100,
-          mental + (good ? C.MENTAL.konetaGood : C.MENTAL.konetaBad)));
+        // メンタルの増減は選択ごとに持つ（未指定なら正解/不正解の既定値）
+        mental = Math.max(0, Math.min(100, mental + (c1.mental != null ? c1.mental
+          : good ? C.MENTAL.konetaGood : C.MENTAL.konetaBad)));
         kizPt += c1.kizPt || 0;
         // 続きの小さな選択（あるものだけ）
         const c2 = k.then && chosen.koneta[k.id + '_2']
           ? k.then.choices.find(c => c.key === chosen.koneta[k.id + '_2']) : null;
         if (c2) {
           kizPt += c2.kizPt || 0;
-          mental = Math.max(0, Math.min(100,
-            mental + (c2.good ? C.MENTAL.konetaThen : -C.MENTAL.konetaThen)));
+          mental = Math.max(0, Math.min(100, mental + (c2.mental != null ? c2.mental
+            : c2.good ? C.MENTAL.konetaThen : -C.MENTAL.konetaThen)));
         }
         if (k.effect === 'calm') {
           if (good) { kizukai++; calm++; } else stim += 0.05;
