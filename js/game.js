@@ -260,9 +260,10 @@ function remainLabel(clock) {
   return left > 0 ? `セールス終了まで、あと${left}時間` : 'セールス終了';
 }
 let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0 };
+let atTitle = false;      // メニューから戻ってきたタイトル表示中（セーブは消さない）
 function paintHud(clock) {
   const beat = FLOW[S.beat];
-  const inGame = !['opening', 'keisho', 'verdict', 'ranks', 'ending'].includes(beat);
+  const inGame = !atTitle && !['opening', 'keisho', 'verdict', 'ranks', 'ending'].includes(beat);
   $('#hud').style.display = inGame ? '' : 'none';
   $('#timebar').style.display = inGame ? '' : 'none';
   if (!inGame) return;
@@ -433,16 +434,57 @@ async function runBeat() {
 }
 function next() { S.beat++; S.pending = null; save(); runBeat(); }
 
-async function runOpening() {
+async function runOpening() { return showTitle(); }
+
+/* タイトル。途中まで進んでいれば「つづきから」が出る。
+   メニューから呼ばれたときもセーブは消さない＝いつでも続きに戻れる */
+async function showTitle() {
   const O = TEXTS.opening;
+  atTitle = true;
+  setArtHour(6); art('face_normal'); paintHud();
   stage().innerHTML = `<div class="title-wrap">
     <div class="game-title">${O.title}</div>
-    <div class="game-sub">${O.sub}</div>
-    <button class="choice start">はじめる</button></div>`;
+    <div class="game-sub">${O.sub}</div></div>`;
   choicesEl().innerHTML = '';
-  if (FAST) await Promise.resolve();
-  else await new Promise(r => { stage().querySelector('.start').onclick = r; });
-  next();
+  const canContinue = S.beat > 1 && FLOW[S.beat];
+  const pick = await new Promise(res => {
+    if (FAST) return Promise.resolve().then(() => res('new'));
+    const mk = (label, act) => {
+      const b = document.createElement('button');
+      b.className = 'choice next-btn';
+      b.textContent = label;
+      b.onclick = () => res(act);
+      choicesEl().appendChild(b);
+    };
+    if (canContinue) mk(O.btnCont, 'cont');
+    mk(O.btnNew, 'new');
+    guardTaps();
+  });
+  atTitle = false;
+  choicesEl().innerHTML = '';
+  if (pick === 'new') {
+    const meta = { best: S.best, clears: S.clears };
+    S = freshState(meta); S.beat = FLOW.indexOf('keisho'); save();
+  }
+  runBeat();
+}
+
+/* 右上の☰。いまはトップに戻るだけ。セーブは残るので、つづきからで戻れる */
+function openMenu() {
+  if (document.querySelector('.menu-pop')) return;
+  const O = TEXTS.opening;
+  const pop = document.createElement('div');
+  pop.className = 'menu-pop';
+  pop.innerHTML = `<button class="choice" data-a="top">${O.menuTop}</button>
+    <button class="choice" data-a="close">${O.menuClose}</button>`;
+  document.querySelector('#app').appendChild(pop);
+  pop.onclick = e => {
+    const a = e.target.dataset && e.target.dataset.a;
+    if (!a) return;
+    pop.remove();
+    Sfx.play('ui');
+    if (a === 'top') { save(); showTitle(); }
+  };
 }
 
 /* 継承の説明。1ページずつ「次へ」ボタンで送る（誤タップで飛ばさないため） */
@@ -797,12 +839,13 @@ async function runEnding() {
   // 周回データ（最高ランク・クリア回数）だけ引き継いでタイトルへ
   const meta = { best: S.best, clears: S.clears };
   S = freshState(meta);
-  save(); runBeat();
+  save(); showTitle();
 }
 
 /* ---- 起動 ---- */
 window.addEventListener('load', () => {
   Sfx.init();
+  $('#menu-btn').onclick = e => { e.stopPropagation(); openMenu(); };
   if (location.search.includes('reset')) { localStorage.removeItem(SAVE_KEY); S = freshState(); }
   const jm = location.search.match(/jump=([A-Za-z0-9]+)/);
   if (jm && FLOW.includes(jm[1])) {

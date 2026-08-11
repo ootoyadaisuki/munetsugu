@@ -569,7 +569,8 @@ const KONETA = [
 const TEXTS = {
   opening: {
     title: '村上宗嗣の12時間', sub: '〜12時間で5億を売れ〜',
-    next: '次へ',
+    next: '次へ', btnNew: 'はじめから', btnCont: 'つづきから',
+    menuTop: 'トップに戻る', menuClose: '閉じる',
     /* 継承の説明。1ページずつ「次へ」で送る。一人称は「俺」 */
     keisho: [
       ['2009年。', '',
