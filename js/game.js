@@ -25,7 +25,7 @@ const Econ = {
     let list = C.LIST0, buyers = 0, upsells = 0, unsub = 0, sales = 0;
     let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
     let calm = 0, oishii = false, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
-    let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false;
+    let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false, kizPt = 0, storyOn = false;
     const log = [];
     const konetaAfter = {}; KONETA.forEach(k => konetaAfter[k.after] = k);
 
@@ -42,7 +42,7 @@ const Econ = {
       if (cls === 'tsuri') tsuriCnt++;
       if (b.tone === 'ego') egoCnt++;
       // 村上宗嗣度の材料: 正直に書いた通数／上から言った通数（件名も数える）
-      if (b.tone === 'honest' && !b.hiddenTone) honestCnt++;
+      if (b.tone === 'honest' && !b.hiddenTone) { honestCnt++; kizPt += C.KIZ_PT_HONEST; }
       if (b.tone === 'ego' || s.tone === 'ego') sekkyoCnt++;
 
       // 開封率
@@ -57,6 +57,8 @@ const Econ = {
         if (b.t === 'B') conv *= 0.55;          // 価格の不安は既に解けている＝空振り
         if (b.t === 'C') conv *= 1.15;
       }
+      // 七日間戦争を読み返していれば、次の一通の物語型の件名が効く
+      if (storyOn && round.storySubj && s.t === 'A') { conv *= 1.25; storyOn = false; }
       let trueEnd = false;
       if (round.special === 'r12_true_end' && b.t === 'D') {
         if (pick.s === 'D' && rikai >= C.R12_RIKAI) { conv *= 2.05; trueEnd = true; sawTrueEnd = true; }
@@ -99,14 +101,30 @@ const Econ = {
       // ラウンド後の小ネタ
       const k = konetaAfter[round.id];
       if (k && chosen.koneta && chosen.koneta[k.id]) {
-        const good = k.choices.find(c => c.key === chosen.koneta[k.id]).good;
-        if (k.effect === 'calm' && good) { kizukai++; calm++; }
-        if (k.effect === 'calm' && !good) stim += 0.05;
-        if (k.effect === 'oishii' && !good) { list += C.OISHII_ADD; oishii = true; trust += C.OISHII_TRUST; badKoneta++; }
-        if (k.effect === 'kizukai' && good) kizukai++;
-        if (k.effect === 'kizukai' && !good) badKoneta++;
-        if (k.effect === 'ise' && good) { kizukai++; rikai += 8; }
-        if (k.effect === 'ise' && !good) { stim += 0.10; badKoneta++; }
+        const c1 = k.choices.find(c => c.key === chosen.koneta[k.id]);
+        const good = c1.good;
+        kizPt += c1.kizPt || 0;
+        // 続きの小さな選択（あるものだけ）
+        const c2 = k.then && chosen.koneta[k.id + '_2']
+          ? k.then.choices.find(c => c.key === chosen.koneta[k.id + '_2']) : null;
+        if (c2) kizPt += c2.kizPt || 0;
+        if (k.effect === 'calm') {
+          if (good) { kizukai++; calm++; } else stim += 0.05;
+          if (c2 && c2.good) kizukai++;              // 返信した＝相手を放置しない
+        }
+        if (k.effect === 'oishii') {
+          if (!good) { list += C.OISHII_ADD; oishii = true; trust += C.OISHII_TRUST; badKoneta++; }
+          if (c2 && c2.good) rikai += 4;             // 面倒な案件を選ぶ＝勝ちパターン
+        }
+        if (k.effect === 'kizukai') { if (good) kizukai++; else badKoneta++; }
+        if (k.effect === 'ise') {
+          if (good) { kizukai++; rikai += 8; } else { stim += 0.10; badKoneta++; }
+        }
+        if (k.effect === 'story' && good) storyOn = true;      // 物語の件名が解禁される
+        if (k.effect === 'shuchu') {
+          if (good) { calm++; expect += 8; } else stim += 0.06;   // 集中＝刺激を1回打ち消す
+        }
+        if (k.effect === 'gyaku' && good) { calm++; expect += 4; }
       }
     });
 
@@ -135,7 +153,7 @@ const Econ = {
     munedo -= badKoneta * M.badKoneta;
     munedo -= Math.min(M.burnCap, unsub / (C.LIST0 * M.burnUnit));  // 焼いたリスト
     munedo = Math.max(0, Math.min(100, Math.round(munedo)));
-    return { sales, buyers, upsells, unsub, list, trust, rikai, expect, stim, kizukai, satisfy,
+    return { sales, buyers, upsells, unsub, list, trust, rikai, expect, stim, kizukai, kizPt, satisfy,
       win, rank, munedo, tsuriCnt, egoCnt, honestCnt, sekkyoCnt, badKoneta, trueEnd: sawTrueEnd, log };
   },
 };
@@ -194,14 +212,16 @@ const PACE = (() => {
   const ref = Econ.simulate({ rounds: ROUNDS.map(() => ({ b: 'A', s: 'A' })), koneta: kon });
   return ref.log.map(l => l.sales * CONF.HISTORIC / ref.sales);
 })();
+/* 史実ペースに対する現在地で顔が6段階に変わる */
 function moodKey() {
   const done = S.rounds.filter(Boolean).length;
   if (!done) return 'face_calm';
   const r = HUD.sales / Math.max(1, PACE[done - 1]);
-  return r >= 1.0 ? 'face_smile' : r >= 0.72 ? 'face_calm' : 'face_worry';
+  return r >= 1.25 ? 'face_joy' : r >= 1.0 ? 'face_smile' : r >= 0.72 ? 'face_calm'
+    : r >= 0.45 ? 'face_worry' : r >= 0.22 ? 'face_pale' : 'face_cry';
 }
 const BEAT_ART = { opening: 'face_normal', keisho: 'lp_page',
-  K2: 'phone_flip', K3: 'letter_note',
+  K2: 'phone_flip', K3: 'letter_note', K5: 'phone_flip', K8: 'books',
   result: 'result_bg', verdict: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
 /* セールス中は部屋を出さない。売上のペースで変わる顔だけを見せる */
 function beatArt(beat) { return BEAT_ART[beat] || moodKey(); }
@@ -256,7 +276,7 @@ function paintHud(clock) {
   const rEl = $('#hud-remain');
   rEl.textContent = remain > 0 ? `史実まで、あと ${fmtYenKanji(remain)}` : `史実超え +${fmtYenKanji(-remain)}`;
   rEl.classList.toggle('gold', remain <= 20000000);
-  $('#hud-buyers').textContent = `継承 ${fmtNum(HUD.buyers)}本`;
+  $('#hud-buyers').textContent = `フロント ${fmtNum(HUD.buyers)}本`;
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
   $('#hud-unsub').textContent = `メルマガ解除 ${fmtNum(HUD.unsub)}人`;
@@ -476,7 +496,10 @@ async function runRound(round) {
   for (;;) {
     stage().innerHTML = ''; choicesEl().innerHTML = '';
     stage().appendChild(composeMail(idx, null, false));
-    subj = await pickChoice(round.subjects, '件名を選ぶ', s => `「${s.text}」`);
+    // 七日間戦争を読み返していれば、件名Aが物語型に入れ替わる
+    const subs = round.storySubj && S.koneta.K8 === 'C'
+      ? round.subjects.map(x => (x.t === 'A' ? round.storySubj : x)) : round.subjects;
+    subj = await pickChoice(subs, '件名を選ぶ', s => `「${s.text}」`);
     stage().innerHTML = ''; stage().appendChild(composeMail(idx, subj.text, true));
     body = await pickChoice(round.bodies, null, b => b.text, { redo: '← 件名を選び直す' });
     if (body !== REDO) break;
@@ -510,7 +533,7 @@ async function showSendResult(round, idx) {
   Sfx.play('correct');
   await wait(300);
   const buyEl = stage().querySelector('.send-buy');
-  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `継承 +${fmtNum(v)}本`; });
+  await tween(0, step.dBuy, 700, v => { buyEl.textContent = `フロント +${fmtNum(v)}本`; });
   HUD.buyers = simAfter.buyers; paintHud();
   // アップセル: 買った人のうち何人が¥2,000,000へ進んだか（信用がなければ0人）
   await wait(500);
@@ -596,12 +619,12 @@ function voicesFor(round, pick, step) {
   return { buy, stay, out, stayHead: kiku ? '返信が届いた' : '未購入者の声' };
 }
 
-async function runKoneta(k) {
-  await showLines(k.intro);
-  const c = await new Promise(res => {
-    if (FAST) return Promise.resolve().then(() => res(k.choices.find(x => x.good) || k.choices[0]));
+/* 小ネタ。1つ5〜15秒で終わらせる。続きの選択（then）を持つものだけ2段になる */
+function konetaPick(list) {
+  return new Promise(res => {
+    if (FAST) return Promise.resolve().then(() => res(list.find(x => x.good) || list[0]));
     choicesEl().innerHTML = '';
-    shuffled(k.choices).forEach(it => {
+    shuffled(list).forEach(it => {
       const b = document.createElement('button');
       b.className = 'choice'; b.textContent = it.text;
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
@@ -609,10 +632,34 @@ async function runKoneta(k) {
     });
     guardTaps();
   });
+}
+async function runKoneta(k) {
+  // 小ネタでもHUDと表情を直前のラウンドの状態に合わせる（?jumpでも正しく出す）
+  const prev = ROUNDS.find(r => r.id === k.after);
+  syncHudTo(S.rounds.filter(Boolean).length);
+  paintHud(prev ? prev.clock : null);
+  art(beatArt(k.id));
+  await showLines(k.intro);
+  const c = await konetaPick(k.choices);
   S.koneta[k.id] = c.key; save();
   Sfx.play(c.good ? 'correct' : 'miss');
-  if (k.id === 'K1' && c.good) art('face_breath');
+  if (k.effect === 'calm' && c.good) art('face_breath');      // システマ呼吸
+  if (k.effect === 'story' && c.good) art('books');           // 少年時代の一冊
+  if (k.effect === 'gyaku' && c.good) art('face_red');        // 逆立ち腕立て20回
   await showLines(c.reaction);
+  // 気遣いポイントは、ここで初めて画面に出る
+  if (k.showKizPt) {
+    const pt = Econ.simulate(chosen()).kizPt;
+    await showLines(['', `本日の気遣いポイント：${pt}`], { cls: 'center kizpt' });
+  }
+  if (k.then) {
+    await showLines(k.then.intro);
+    const c2 = await konetaPick(k.then.choices);
+    S.koneta[k.id + '_2'] = c2.key; save();
+    Sfx.play(c2.good ? 'correct' : 'miss');
+    await showLines(c2.reaction);
+  }
+  art(beatArt(FLOW[S.beat]));
   next();
 }
 
@@ -635,7 +682,7 @@ async function runResult() {
   stage().innerHTML = `<div class="result-wrap ${sim.win ? 'win' : 'lose'}">
     <div class="res-num">${fmtYen(sim.sales)}</div>
     <div class="res-label">史実 ${fmtYen(CONF.HISTORIC)}　${diff >= 0 ? '+' : '−'}${fmtYen(Math.abs(diff)).slice(1)}</div>
-    <div class="res-break">継承 ${fmtNum(sim.buyers)}本 ${fmtYenKanji(sim.buyers * CONF.UNIT)}
+    <div class="res-break">フロント ${fmtNum(sim.buyers)}本 ${fmtYenKanji(sim.buyers * CONF.UNIT)}
       ／ アップセル ${fmtNum(sim.upsells)}本 ${fmtYenKanji(sim.upsells * CONF.UPSELL)}</div>
     <div class="res-copy">${sim.win ? TEXTS.result.win : TEXTS.result.lose}</div></div>`;
   await wait(900);
@@ -680,7 +727,7 @@ async function runRanks() {
   const salesRank = sim.win ? 'S' : sim.sales >= 500000000 ? 'A' : sim.sales >= 400000000 ? 'B' : 'C';
   const rows = [
     ['売上', salesRank], ['コピー', copyRank], ['顧客理解', rikaiRank], ['思いやり', omoiRank],
-    ['気遣い', kizRank], ['継承', `${fmtNum(sim.buyers)}本`],
+    ['気遣い', `${kizRank}（${fmtNum(sim.kizPt)}pt）`], ['フロント', `${fmtNum(sim.buyers)}本`],
     ['アップセル', `${fmtNum(sim.upsells)}本`],
     ['メルマガ解除', `${fmtNum(sim.unsub)}人`], ['顧客満足', `${sim.satisfy}%`],
   ];

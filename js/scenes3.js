@@ -496,46 +496,140 @@ ART.face_tear = () => {
   scanlines(0, 0, 360, 200, 0.05);
 };
 
-/* ── ⑤ セールス中の顔（画面いっぱいのバストアップ）────────────
-   ラウンド中はこの3枚のどれかが出る。①〜④とまったく同じ骨格を使うので
-   別人にならない。差分は 眉・目・口・レンズの反射 の4点だけ。
-   smile … 売上が史実ペースを上回っている
-   calm  … 拮抗している（基準）
-   worry … ゲームオーバーのペース */
+/* ── ⑤ セールス中の顔（6段階）────────────────────────
+   ラウンド中はこの6枚のどれかが出る。①〜④とまったく同じ骨格を使うので
+   どれだけ表情が動いても別人にならない。差分は 眉・目・口・肌・レンズの反射 だけ。
+     joy   … 圧勝ペース（史実の1.25倍以上）
+     smile … 上回っている
+     calm  … 拮抗している（基準）
+     worry … 下回っている
+     pale  … かなり悪い（血の気が引く）
+     cry   … 絶望的（涙が出る） */
 function muFace(mood) {
-  const smile = mood === 'smile', worry = mood === 'worry';
+  const good = mood === 'joy' || mood === 'smile';
+  const bad = mood === 'worry' || mood === 'pale' || mood === 'cry';
   muRoom();
-  // 不安なときだけ肩がわずかに落ちる
-  const oy = worry ? 2 : 0;
-  muBody({ oy, brow: worry ? 'worry' : smile ? 'up' : 'base' });
-  // 目（まばたきは①と同じ周期。笑うと少し細くなる）
+  if (mood === 'joy') glow(MU.cx, MU.faceT + 20, 120, PAL.gold, 0.10);
+  if (mood === 'cry') glow(MU.cx, MU.faceT + 30, 90, PAL.crt, 0.12);
+  // 好調は肩が上がり、不調は落ちる
+  const oy = mood === 'joy' ? -1 : mood === 'worry' ? 2 : bad ? 3 : 0;
+  // 青ざめる＝肌から赤みを抜く。泣くときは少しだけくすませる
+  const skin = mood === 'pale' ? '#b3aeb8' : mood === 'cry' ? '#c9a892' : null;
+  muBody({ oy, skin, brow: good ? 'up' : bad ? 'worry' : 'base' });
+
   const bt = T() % 4.3;
   const blink = bt < 0.09 ? 6 : (bt < 0.16 ? 3 : 0);
-  muEyesOpen(oy, smile ? Math.max(blink, 2) : blink);
-  // メガネ（好調ほど反射が強い＝表情より先に「調子」が伝わる）
-  muGlasses(oy, { hi: smile ? 1.0 : worry ? 0.3 : 0.7 });
-  const lipC = '#8a4a44';
-  if (smile) {                      // 口角の上がった弧
-    P(MU.cx - 10, MU.mouthY, 20, 2, lipC);
-    P(MU.cx - 13, MU.mouthY - 2, 3, 2, lipC);
-    P(MU.cx + 10, MU.mouthY - 2, 3, 2, lipC);
-    P(MU.cx - 15, MU.mouthY - 4, 2, 2, lipC);
-    P(MU.cx + 13, MU.mouthY - 4, 2, 2, lipC);
-    P(MU.cx - 9, MU.mouthY + 2, 18, 1, lit(PAL.skin, 0.72));
-  } else if (worry) {               // への字＋こめかみの冷や汗（3秒に1粒）
-    P(MU.cx - 9, MU.mouthY + 2 + oy, 18, 2, lipC);
-    P(MU.cx - 12, MU.mouthY + oy, 3, 2, lipC);
-    P(MU.cx + 9, MU.mouthY + oy, 3, 2, lipC);
-    const sw = (T() * 0.85) % 3;
+  const lipC = mood === 'pale' ? '#7a5f63' : '#8a4a44';
+
+  if (mood === 'joy') {
+    /* 目（笑って細める）。∩ の弧＝上に凸。線1本にすると眠そうになるので端を落とす */
+    for (const ex of [MU.eyeLX, MU.eyeRX]) {
+      P(ex + 2, MU.eyeY + 1 + oy, MU.eyeW - 4, 2, PAL.hair);
+      P(ex, MU.eyeY + 3 + oy, 3, 2, PAL.hair);
+      P(ex + MU.eyeW - 3, MU.eyeY + 3 + oy, 3, 2, PAL.hair);
+    }
+  } else if (mood === 'pale') {
+    muEyesOpen(oy, 0);                     // 見開く（まばたきを止める＝固まっている）
+  } else if (mood === 'cry') {
+    muEyesOpen(oy, 0, '#20222c');
+    for (const ex of [MU.eyeLX, MU.eyeRX]) {   // 下まぶたに溜まった涙の膜
+      P(ex + 1, MU.eyeY + MU.eyeH - 2 + oy, MU.eyeW - 2, 2, lit(PAL.crt, 1.1));
+      P(ex + 3, MU.eyeY + MU.eyeH - 1 + oy, 5, 1, PAL.white);
+    }
+    D(MU.eyeLX - 1, MU.eyeY + 4 + oy, '#a05a52');   // 目のふちを1ドットだけ赤く
+    D(MU.eyeRX + MU.eyeW, MU.eyeY + 4 + oy, '#a05a52');
+  } else {
+    muEyesOpen(oy, mood === 'smile' ? Math.max(blink, 2) : blink);
+  }
+
+  muGlasses(oy, { hi: mood === 'joy' ? 1.0 : mood === 'smile' ? 0.9
+    : mood === 'calm' ? 0.7 : mood === 'cry' ? 1.0 : mood === 'worry' ? 0.3 : 0.18 });
+
+  /* 口。ここだけは「口角が中心より上か下か」を絶対に間違えない。
+     上がっていれば笑って見え、下がっていれば不安に見える＝表情の全部が決まる */
+  if (mood === 'joy') {                    // 開いた笑い口（歯や舌は描かない）
+    P(MU.cx - 9, MU.mouthY - 1 + oy, 18, 7, '#6f3833');
+    P(MU.cx - 9, MU.mouthY - 1 + oy, 18, 1, '#542824');
+    P(MU.cx - 12, MU.mouthY - 3 + oy, 3, 3, lipC);      // 口角（中心より上）
+    P(MU.cx + 9, MU.mouthY - 3 + oy, 3, 3, lipC);
+    P(MU.cx - 14, MU.mouthY - 5 + oy, 2, 2, lipC);
+    P(MU.cx + 12, MU.mouthY - 5 + oy, 2, 2, lipC);
+  } else if (mood === 'smile') {           // 口角の上がった弧
+    P(MU.cx - 10, MU.mouthY + oy, 20, 2, lipC);
+    P(MU.cx - 13, MU.mouthY - 2 + oy, 3, 2, lipC);
+    P(MU.cx + 10, MU.mouthY - 2 + oy, 3, 2, lipC);
+    P(MU.cx - 15, MU.mouthY - 4 + oy, 2, 2, lipC);
+    P(MU.cx + 13, MU.mouthY - 4 + oy, 2, 2, lipC);
+    P(MU.cx - 9, MU.mouthY + 2 + oy, 18, 1, lit(PAL.skin, 0.72));
+  } else if (mood === 'calm') {            // 一文字（口角を1ドットだけ上げた基準）
+    P(MU.cx - 11, MU.mouthY + oy, 22, 2, lipC);
+    P(MU.cx - 12, MU.mouthY - 1 + oy, 2, 2, lipC);
+    P(MU.cx + 10, MU.mouthY - 1 + oy, 2, 2, lipC);
+    P(MU.cx - 11, MU.mouthY + 2 + oy, 22, 1, lit(PAL.skin, 0.7));
+  } else if (mood === 'worry') {           // への字（中心が上、口角が下）
+    P(MU.cx - 8, MU.mouthY + oy, 16, 2, lipC);
+    P(MU.cx - 11, MU.mouthY + 2 + oy, 3, 2, lipC);
+    P(MU.cx + 8, MU.mouthY + 2 + oy, 3, 2, lipC);
+    P(MU.cx - 13, MU.mouthY + 4 + oy, 2, 2, lipC);
+    P(MU.cx + 11, MU.mouthY + 4 + oy, 2, 2, lipC);
+  } else if (mood === 'pale') {            // 小さく開いたまま固まっている
+    P(MU.cx - 5, MU.mouthY + 1 + oy, 10, 4, '#5e4145');
+    P(MU.cx - 5, MU.mouthY + 1 + oy, 10, 1, '#463034');
+    P(MU.cx - 8, MU.mouthY + 4 + oy, 3, 2, lipC);
+    P(MU.cx + 5, MU.mouthY + 4 + oy, 3, 2, lipC);
+  } else {                                 // cry: 強く結んだへの字
+    P(MU.cx - 7, MU.mouthY + oy, 14, 3, lipC);
+    P(MU.cx - 11, MU.mouthY + 3 + oy, 4, 2, lipC);
+    P(MU.cx + 7, MU.mouthY + 3 + oy, 4, 2, lipC);
+    P(MU.cx - 14, MU.mouthY + 5 + oy, 3, 2, lipC);
+    P(MU.cx + 11, MU.mouthY + 5 + oy, 3, 2, lipC);
+  }
+
+  // 冷や汗（不調のときだけ。粒が落ちる周期は mood ごとに変える）
+  if (mood === 'worry' || mood === 'pale') {
+    const cyc = mood === 'pale' ? 1.7 : 3;
+    const sw = (T() * 0.85) % cyc;
     if (sw < 1.3) P(MU.headL + MU.headW - 10, MU.faceT + 6 + sw * 22 + oy, 2, 5, lit(PAL.crt, 1.5));
-  } else {                          // 一文字（口角を1ドットだけ上げた基準の顔）
-    P(MU.cx - 11, MU.mouthY, 22, 2, lipC);
-    P(MU.cx - 12, MU.mouthY - 1, 2, 2, lipC);
-    P(MU.cx + 10, MU.mouthY - 1, 2, 2, lipC);
-    P(MU.cx - 11, MU.mouthY + 2, 22, 1, lit(PAL.skin, 0.7));
+    if (mood === 'pale') {
+      const sw2 = (T() * 0.85 + 0.9) % cyc;
+      if (sw2 < 1.3) P(MU.headL + 6, MU.faceT + 10 + sw2 * 20 + oy, 2, 5, lit(PAL.crt, 1.5));
+    }
+  }
+  // 青ざめの縦線（血の気が引いた記号。額に3本だけ。増やすとギャグになる）
+  if (mood === 'pale') {
+    _c.globalAlpha = 0.5;
+    for (let i = 0; i < 3; i++) P(MU.headL + 12 + i * 7, MU.faceT + 4 + oy, 1, 9, lit(PAL.steel, 1.3));
+    _c.globalAlpha = 1;
+  }
+  /* 涙（左目から一筋。9秒周期。メガネがあるので レンズ内にたまる→縁を越える→頬を伝う） */
+  if (mood === 'cry') {
+    const t = (T() % 9) / 9, tx = MU.eyeLX + 3, lensB = MU.eyeY - 5 + 15 + oy;
+    if (t < 0.42) {
+      const g = Math.min(1, t / 0.35);
+      P(tx, MU.eyeY + MU.eyeH - 1 + oy, 3, 1 + Math.round(g * 3), lit(PAL.crt, 1.15));
+      if (g > 0.8) D(tx + 1, MU.eyeY + MU.eyeH + 3 + oy, PAL.white);
+    } else if (t < 0.5) {
+      const g = (t - 0.42) / 0.08;
+      P(tx, lensB - 1 + g * 3, 3, 3 + g * 2, lit(PAL.crt, 1.2));
+      D(tx + 1, lensB, PAL.white);
+    } else if (t < 0.85) {
+      const g = (t - 0.5) / 0.35, y = lensB + 3 + g * 26, x = tx + g * 3;
+      P(x, y, 2, 4, lit(PAL.crt, 1.15));
+      D(x, y + 1, PAL.white);
+      _c.globalAlpha = 0.30;
+      P(tx, lensB + 2, 2, Math.max(1, y - lensB - 2), lit(PAL.crt, 0.9));
+      _c.globalAlpha = 1;
+    } else {
+      _c.globalAlpha = 0.9 - (t - 0.85) / 0.15 * 0.9;
+      P(tx, lensB + 2, 2, 27, lit(PAL.crt, 0.9));
+      _c.globalAlpha = 1;
+    }
   }
   scanlines(0, 0, 360, 200, 0.06);
 }
+ART.face_joy = () => muFace('joy');
 ART.face_smile = () => muFace('smile');
 ART.face_calm = () => muFace('calm');
 ART.face_worry = () => muFace('worry');
+ART.face_pale = () => muFace('pale');
+ART.face_cry = () => muFace('cry');

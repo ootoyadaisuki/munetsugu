@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>セールス中の顔 — 村上宗嗣の12時間</title>
+<style>
+  body { background: #0d0f14; color: #e8e4d8; margin: 0; padding: 16px;
+    font-family: "Hiragino Kaku Gothic ProN", sans-serif; }
+  h1 { font-size: 16px; color: #8a8f9a; font-weight: normal; margin: 0 0 4px; }
+  .note { font-size: 12px; color: #8a8f9a; margin-bottom: 16px; line-height: 1.7; }
+  .row { margin-bottom: 22px; }
+  .cap { color: #f0c33c; font-weight: bold; font-size: 15px; margin-bottom: 6px; }
+  .cap span { color: #8a8f9a; font-weight: normal; font-size: 12px; margin-left: 8px; }
+  canvas { width: 100%; max-width: 720px; image-rendering: pixelated; display: block;
+    border: 2px solid #2a3140; background: #0b0e16; }
+</style>
+</head>
+<body>
+<h1>セールス中に出る顔（全6種）</h1>
+<div class="note">
+  12通のあいだ、この6枚のどれかが出ています。売上が「王道ルートの累計カーブを史実総額に
+  正規化したもの」を上回っていれば笑い、大きく下回ると不安な顔になります。<br>
+  差分は 眉・目・口・メガネの反射 の4点だけ。骨格は共通なので別人になりません。
+</div>
+<div id="z"></div>
+<script src="js/art.js"></script>
+<script src="js/scenes1.js"></script>
+<script src="js/scenes2.js"></script>
+<script src="js/scenes3.js"></script>
+<script src="js/scenes4.js"></script>
+<script>
+  const LIST = [
+    ['face_joy', '① 圧勝', '史実ペースの1.25倍以上（笑い目・開いた口・肩が上がる・反射が最大）'],
+    ['face_smile', '② 好調', '史実ペースを上回っている（眉が上がる・口角が上がる）'],
+    ['face_calm', '③ 基準', '拮抗している（一文字口・口角を1ドットだけ上げたニュートラル）'],
+    ['face_worry', '④ 不安', '下回っている（八の字眉・への字口・肩が落ちる・冷や汗）'],
+    ['face_pale', '⑤ 青ざめ', 'かなり悪い（肌から赤みが抜ける・額に縦線・汗が2粒・口が開いたまま固まる）'],
+    ['face_cry', '⑥ 涙', '絶望的（レンズの内側に涙がたまり、縁を越えて頬を伝う）'],
+  ];
+  const z = document.getElementById('z');
+  const canvases = [];
+  for (const [key, name, desc] of LIST) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<div class="cap">${name}<span>${key} — ${desc}</span></div>`;
+    const c = document.createElement('canvas');
+    c.width = 360; c.height = 200;
+    row.appendChild(c); z.appendChild(row);
+    canvases.push([c.getContext('2d'), key]);
+  }
+  // まばたきと汗が動くので、毎フレーム描き直す
+  (function loop() {
+    requestAnimationFrame(loop);
+    for (const [ctx, key] of canvases) {
+      useCtx(ctx); ctx.clearRect(0, 0, 360, 200);
+      try { ART[key](ctx); } catch (e) {}
+    }
+  })();
+</script>
+</body>
+</html>

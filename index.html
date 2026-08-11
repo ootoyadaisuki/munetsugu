@@ -23,15 +23,12 @@
     padding: 6px 14px 5px; border-bottom: 2px solid var(--line); background: var(--panel);
     font-variant-numeric: tabular-nums; flex-shrink: 0;
   }
-  .hud-top { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-  .hud-sales-label { color: var(--gold); font-size: 20px; font-weight: bold; margin-left: auto; }
-  #hud-sales { color: var(--gold); font-size: 20px; font-weight: bold; }
-  #sfx-btn { background: none; border: none; color: var(--dim); font-size: 14px;
-    cursor: pointer; padding: 0 2px; font-family: inherit; }
-  #sfx-btn.off { opacity: .35; text-decoration: line-through; }
-  .hud-low { display: flex; gap: 12px; font-size: 11px; color: var(--dim); margin-top: 2px;
-    white-space: nowrap; }
-  #hud-upsell { color: var(--gold); }
+  /* 左に本数、右に金額。金額は 総売上 → 史実まで の順で縦に並ぶ */
+  .hud-top { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  .hud-counts { display: flex; gap: 10px; font-size: 10.5px; color: var(--dim); }
+  .hud-sales-label { color: var(--gold); font-size: 18px; font-weight: bold; margin-left: auto; }
+  #hud-sales { color: var(--gold); font-size: 18px; font-weight: bold; }
+  #hud-buyers, #hud-upsell { color: var(--gold); }
   /* 見込み客＝体力ゲージ。解除のたびに削れていく */
   .hud-gauge-row { display: flex; align-items: center; gap: 8px; margin-top: 3px;
     font-size: 10.5px; color: var(--dim); white-space: nowrap; }
@@ -39,7 +36,7 @@
     overflow: hidden; }
   #gauge-fill { height: 100%; width: 100%; background: #4d8ec4; }
   #gauge-fill.draining { background: var(--red); }
-  .hud-mid { display: flex; gap: 10px; font-size: 11px; margin-top: 3px; white-space: nowrap; }
+  .hud-mid { display: flex; gap: 10px; font-size: 11px; margin-top: 2px; white-space: nowrap; }
   #hud-unsub { color: var(--red); }
   #hud-remain { color: var(--blue); margin-left: auto; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
@@ -169,6 +166,7 @@
     text-shadow: 3px 3px 0 #4a3a08; }
   .clear-next { color: var(--dim); }
   .clear-sub { color: var(--dim); font-size: 14px; letter-spacing: 1px; margin-top: 4px; }
+  .kizpt .tline { color: var(--gold); font-weight: bold; font-size: 18px; }
   .game-over { font-size: 32px; font-weight: bold; color: var(--red); letter-spacing: 5px;
     text-shadow: 3px 3px 0 #3a1010; }
   .notyet-lines { font-size: 16px; line-height: 2; margin-top: 6px; }
@@ -179,22 +177,21 @@
 <div id="app">
   <div id="hud">
     <div class="hud-top">
-      <button id="sfx-btn" title="音">♪</button>
+      <span class="hud-counts">
+        <span id="hud-buyers">フロント 0本</span>
+        <span id="hud-upsell">アップセル 0本</span>
+      </span>
       <span class="hud-sales-label">総売上</span>
       <span id="hud-sales">0円</span>
     </div>
-    <div class="hud-low">
-      <span id="hud-buyers">継承 0本</span>
-      <span id="hud-upsell">アップセル 0本</span>
+    <div class="hud-mid">
+      <span id="hud-unsub">メルマガ解除 0人</span>
+      <span id="hud-remain">史実まで、あと 5億6490万円</span>
     </div>
     <div class="hud-gauge-row">
       <span>見込み客</span>
       <div class="gauge"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
-    </div>
-    <div class="hud-mid">
-      <span id="hud-unsub">メルマガ解除 0人</span>
-      <span id="hud-remain">史実まで、あと 5億6490万円</span>
     </div>
   </div>
   <div id="artwrap">
@@ -213,12 +210,5 @@
 <script src="js/scenes4.js?v=2"></script>
 <script src="js/sfx.js?v=2"></script>
 <script src="js/game.js?v=2"></script>
-<script>
-  document.getElementById('sfx-btn').onclick = e => {
-    e.stopPropagation();
-    const on = Sfx.toggle();
-    e.currentTarget.classList.toggle('off', !on);
-  };
-</script>
 </body>
 </html>

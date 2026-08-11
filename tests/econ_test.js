@@ -10,10 +10,20 @@ function check(name, cond, detail = '') {
   else { fail++; console.log(`  FAIL ${name} ${detail}`); }
 }
 const M = 1000000;
+/* 小ネタは「全部の正解を選んだ」状態を既定にする。選択肢の中身が変わっても
+   ハードコードした鍵がズレないよう、good フラグから毎回組み立てる */
+function konetaAll(over) {
+  const o = {};
+  for (const k of KONETA) {
+    o[k.id] = (k.choices.find(c => c.good) || k.choices[0]).key;
+    if (k.then) o[k.id + '_2'] = (k.then.choices.find(c => c.good) || k.then.choices[0]).key;
+  }
+  return Object.assign(o, over || {});
+}
 function route(b, s, koneta, overrides) {
   const rounds = ROUNDS.map(() => ({ b, s }));
   if (overrides) for (const [i, v] of Object.entries(overrides)) rounds[i] = v;
-  return { rounds, koneta: koneta || { K1: 'B', K2: 'B', K3: 'B', K4: 'B' } };
+  return { rounds, koneta: koneta || konetaAll() };
 }
 
 // T1: 全A×A（+R12はD×Dの真エンドも）→ 史実超え・解除≤1200・総合S到達可能
@@ -24,7 +34,7 @@ console.log('T1 王道ルート');
     simAA.sales > CONF.HISTORIC && simAA.unsub <= 1200, `rank=${simAA.rank}`);
   check(`全A×A 総合S`, simAA.rank === 'S', `rank=${simAA.rank} satisfy=${simAA.satisfy}`);
   // 史実の内訳（本体700本・アップセル約250本）に近い形で勝っている
-  check(`全A×A 継承${simAA.buyers}本・アップセル${simAA.upsells}本`,
+  check(`全A×A フロント${simAA.buyers}本・アップセル${simAA.upsells}本`,
     simAA.buyers >= 650 && simAA.buyers <= 900 && simAA.upsells >= 200 && simAA.upsells <= 330);
   check(`全A×A 売上の8割以上がアップセル側`,
     simAA.upsells * CONF.UPSELL / simAA.sales >= 0.80);
@@ -42,7 +52,7 @@ console.log('T1 王道ルート');
 console.log('T2 強引ルート');
 {
   const sim = Econ.simulate(route('B', 'B'));
-  check(`全B×B 継承=${sim.buyers}本（本体は売れる）`, sim.buyers >= 600);
+  check(`全B×B フロント=${sim.buyers}本（本体は売れる）`, sim.buyers >= 600);
   check(`全B×B アップセル=${sim.upsells}本（信用がないので進まない）`, sim.upsells <= 30);
   check(`全B×B 売上=${(sim.sales / M).toFixed(1)}M ≤150M`, sim.sales <= 150 * M);
   check(`全B×B 解除=${sim.unsub} ≥6000`, sim.unsub >= 6000);
@@ -52,11 +62,9 @@ console.log('T2 強引ルート');
 // T2b: おいしい案件（買ったリスト）→ 本体は増えるが総額は落ちる＝罠として機能する
 console.log('T2b おいしい案件は罠');
 {
-  const clean = Econ.simulate(route('A', 'A', { K1: 'B', K2: 'B', K3: 'B', K4: 'B' },
-    { 11: { b: 'D', s: 'D' } }));
-  const bought = Econ.simulate(route('A', 'A', { K1: 'B', K2: 'A', K3: 'B', K4: 'B' },
-    { 11: { b: 'D', s: 'D' } }));
-  check(`買うと継承は増える ${clean.buyers}→${bought.buyers}本`, bought.buyers > clean.buyers);
+  const clean = Econ.simulate(route('A', 'A', konetaAll(), { 11: { b: 'D', s: 'D' } }));
+  const bought = Econ.simulate(route('A', 'A', konetaAll({ K2: 'A' }), { 11: { b: 'D', s: 'D' } }));
+  check(`買うとフロントは増える ${clean.buyers}→${bought.buyers}本`, bought.buyers > clean.buyers);
   check(`なのに総額は落ちる ${(clean.sales / M).toFixed(0)}M→${(bought.sales / M).toFixed(0)}M`,
     bought.sales < clean.sales);
   check(`買ったら史実に届かない`, bought.sales < CONF.HISTORIC);
@@ -84,11 +92,11 @@ console.log('T5 不変条件');
 {
   let bad = 0, n = 0, lo = Infinity, hi = -Infinity;
   for (const b of 'ABCD') for (const s of 'ABCD')
-    for (const k2 of ['A', 'B']) {
-      const sim = Econ.simulate(route(b, s, { K1: 'B', K2: k2, K3: 'B', K4: 'B' }));
+    for (const k2 of ['A', 'C']) {
+      const sim = Econ.simulate(route(b, s, konetaAll({ K2: k2 })));
       n++;
       if (sim.list < 0) bad++;
-      const cap = CONF.LIST0 + (k2 === 'A' ? CONF.OISHII_ADD : 0);
+      const cap = CONF.LIST0 + (k2 !== 'C' ? CONF.OISHII_ADD : 0);
       if (sim.unsub + sim.buyers + sim.list !== cap) bad++;
       if (sim.sales < lo) lo = sim.sales; if (sim.sales > hi) hi = sim.sales;
     }
@@ -124,7 +132,7 @@ for (const [name, r] of [['全A×A', route('A', 'A')], ['全B×B', route('B', 'B
   ['全C×C', route('C', 'C')], ['全D×D', route('D', 'D')],
   ['A×A+真エンド', route('A', 'A', null, { 11: { b: 'D', s: 'D' } })]]) {
   const sim = Econ.simulate(r);
-  console.log(`  ${name}: ${(sim.sales / M).toFixed(1)}M（継承${sim.buyers}本+UP${sim.upsells}本） 解除${sim.unsub} 満足${sim.satisfy}% 総合${sim.rank} 宗嗣度${sim.munedo}%`);
+  console.log(`  ${name}: ${(sim.sales / M).toFixed(1)}M（フロント${sim.buyers}本+UP${sim.upsells}本） 解除${sim.unsub} 満足${sim.satisfy}% 総合${sim.rank} 宗嗣度${sim.munedo}%`);
 }
 
 console.log(`\n=== ${fail === 0 ? 'ALL PASS' : 'FAIL ' + fail + '件'} (pass=${pass}) ===`);
