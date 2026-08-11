@@ -34,6 +34,15 @@ python3 dev-server.py 8792
 | `tests/econ_test.js` | 経済の合格基準テスト |
 | `docs/` | 台本・企画書・裏取り済みの事実集 |
 
+## 公開（GitHub Pages）
+
+```bash
+./tools/stamp.sh && git add -A && git commit -m "…" && git push
+```
+
+`tools/stamp.sh` が scriptタグの版数を打ち直す。GitHub Pages は `max-age=600` で
+配るので、これを忘れると古いJSがブラウザに残り、直したはずの画面が出ない。
+
 ## 開発
 
 ```bash
