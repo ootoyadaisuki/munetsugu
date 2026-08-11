@@ -320,10 +320,9 @@ function paintHud(clock) {
   // 見込み客ゲージ（体力）。買われたぶんも解除されたぶんも削れる
   const cap = CONF.LIST0;
   $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
+  // 緑が残りのメンタル。削れたぶんは見込み客ゲージと同じく赤で残る
   const m = Math.max(0, Math.min(100, HUD.mental));
-  const mf = $('#mental-fill');
-  mf.style.width = m + '%';
-  mf.className = m >= 70 ? '' : m >= 40 ? 'mid' : 'low';
+  $('#mental-fill').style.width = m + '%';
   $('#hud-mental').textContent = Math.round(m) + '%';
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
