@@ -217,9 +217,10 @@
   .cc-lead { font-size: 12px; color: #8f0a20; letter-spacing: 2px; }
   .cc-head { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
     font-size: 21px; font-weight: bold; line-height: 1.55; margin-top: 8px; }
-  .cc-uses { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px 0 12px; }
+  /* 用途は必ず2段×2個。画面幅で3+1に割れると、並びが毎回変わって落ち着かない */
+  .cc-uses { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 14px 0 12px; }
   .cc-uses span { border: 1px solid #e0d6c2; background: #f4ecdd; color: #4a423a;
-    font-size: 12px; padding: 5px 9px; }
+    font-size: 12px; padding: 6px 4px; text-align: center; }
   .cc-body { font-size: 13px; line-height: 1.85; color: #4a423a; }
   /* LPと同じ黄色のマーカー */
   .cc-mk { color: #16130f; background: linear-gradient(transparent 58%, #ffe95c 58%,
@@ -311,13 +312,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608120121"></script>
-<script src="js/art.js?v=202608120121"></script>
-<script src="js/scenes1.js?v=202608120121"></script>
-<script src="js/scenes2.js?v=202608120121"></script>
-<script src="js/scenes3.js?v=202608120121"></script>
-<script src="js/scenes4.js?v=202608120121"></script>
-<script src="js/sfx.js?v=202608120121"></script>
-<script src="js/game.js?v=202608120121"></script>
+<script src="js/data.js?v=202608120126"></script>
+<script src="js/art.js?v=202608120126"></script>
+<script src="js/scenes1.js?v=202608120126"></script>
+<script src="js/scenes2.js?v=202608120126"></script>
+<script src="js/scenes3.js?v=202608120126"></script>
+<script src="js/scenes4.js?v=202608120126"></script>
+<script src="js/sfx.js?v=202608120126"></script>
+<script src="js/game.js?v=202608120126"></script>
 </body>
 </html>
