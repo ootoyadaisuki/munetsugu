@@ -133,7 +133,11 @@ const Econ = {
         // 続きの小さな選択（あるものだけ）
         const c2 = k.then && chosen.koneta[k.id + '_2']
           ? k.then.choices.find(c => c.key === chosen.koneta[k.id + '_2']) : null;
-        if (c2) kizPt += c2.kizPt || 0;
+        if (c2) {
+          kizPt += c2.kizPt || 0;
+          mental = Math.max(0, Math.min(100,
+            mental + (c2.good ? C.MENTAL.konetaThen : -C.MENTAL.konetaThen)));
+        }
         if (k.effect === 'calm') {
           if (good) { kizukai++; calm++; } else stim += 0.05;
           if (c2 && c2.good) kizukai++;              // 返信した＝相手を放置しない
@@ -610,7 +614,8 @@ async function showSendResult(round, idx) {
     <div class="send-subject">「${round.subjects['ABCD'.indexOf(pick.s)].text}」</div>
     <div class="send-state">送信中……</div>
     <div class="send-open"></div><div class="send-buy"></div><div class="send-upsell"></div>
-    <div class="send-unsub"></div><div class="send-sales"></div></div>`;
+    <div class="send-unsub"></div><div class="send-mental"></div>
+    <div class="send-sales"></div></div>`;
   choicesEl().innerHTML = '';
   Sfx.play('ui');
   await wait(700);
@@ -652,10 +657,14 @@ async function showSendResult(round, idx) {
     gauge.classList.remove('draining');
   }
   HUD.list = simAfter.list; HUD.unsub = simAfter.unsub;
-  // メンタルも同じ場面で動かす（削れたら赤くふちどる）
+  // メンタルも同じ場面で動かす。増減は必ず数字で出す
   if (step.mental !== step.mentalBefore) {
+    const d = step.mental - step.mentalBefore;
     const mf = $('#mental-fill');
-    if (step.dM < 0) { mf.style.outline = '1px solid var(--red)'; Sfx.play('miss'); }
+    mf.style.outline = `1px solid var(--${d < 0 ? 'red' : 'green'})`;
+    Sfx.play(d < 0 ? 'miss' : 'correct');
+    const tag = mentalTag(d);
+    stage().querySelector('.send-mental').appendChild(tag);
     await tween(step.mentalBefore, step.mental, 700, v => { HUD.mental = v; paintHud(); });
     setTimeout(() => { mf.style.outline = ''; }, FAST ? 0 : 500);
   }
@@ -716,6 +725,29 @@ function voicesFor(round, pick, step) {
   return { buy, stay, out, stayHead: kiku ? '返信が届いた' : '未購入者の声' };
 }
 
+/* メンタルが動いたことを、その場で見せる。原因（選択）の直後に出さないと
+   何で減ったのか分からなくなる */
+async function showMentalDelta(before) {
+  syncHudTo(S.rounds.filter(Boolean).length);   // いまの小ネタまで含めて再計算
+  const after = HUD.mental;
+  if (Math.round(after) === Math.round(before)) { paintHud(); return; }
+  HUD.mental = before;
+  stage().appendChild(mentalTag(after - before));
+  const mf = $('#mental-fill');
+  mf.style.outline = `1px solid var(--${after < before ? 'red' : 'green'})`;
+  Sfx.play(after < before ? 'miss' : 'correct');
+  await tween(before, after, 600, v => { HUD.mental = v; paintHud(); });
+  HUD.mental = after; paintHud();
+  setTimeout(() => { mf.style.outline = ''; }, FAST ? 0 : 500);
+}
+/* 「メンタル -5」「メンタル +10」。増減は必ず数字で見せる */
+function mentalTag(d) {
+  const el = document.createElement('div');
+  el.className = 'mental-tag ' + (d < 0 ? 'down' : 'up');
+  el.textContent = `メンタル ${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}`;
+  return el;
+}
+
 /* 小ネタ。1つ5〜15秒で終わらせる。続きの選択（then）を持つものだけ2段になる */
 function konetaPick(list) {
   return new Promise(res => {
@@ -738,8 +770,10 @@ async function runKoneta(k) {
   art(beatArt(k.id));
   await showLines(k.intro);
   const c = await konetaPick(k.choices);
+  const m0 = HUD.mental;
   S.koneta[k.id] = c.key; save();
   Sfx.play(c.good ? 'correct' : 'miss');
+  await showMentalDelta(m0);
   if (k.effect === 'calm' && c.good) art('face_breath');      // システマ呼吸
   if (k.effect === 'story' && c.good) art('books');           // 少年時代の一冊
   if (k.effect === 'gyaku' && c.good) art('face_red');        // 逆立ち腕立て20回
@@ -752,9 +786,11 @@ async function runKoneta(k) {
   if (k.then) {
     await showLines(k.then.intro);
     const c2 = await konetaPick(k.then.choices);
+    const m1 = HUD.mental;
     S.koneta[k.id + '_2'] = c2.key; save();
     Sfx.play(c2.good ? 'correct' : 'miss');
     await showLines(c2.reaction);
+    await showMentalDelta(m1);
   }
   art(beatArt(FLOW[S.beat]));
   next();
