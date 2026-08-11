@@ -99,10 +99,12 @@ const Econ = {
       buyers += dBuy; upsells += dUp; unsub += dUnsub;
       sales += dBuy * C.UNIT + dUp * C.UPSELL;
 
-      // 隠しパラメータ更新
+      // 信用・顧客理解の増減（本文の型＋件名の型＋整合で決まる）
       const fx = C.FX[b.t];
-      trust += fx.trust + (s.tone === 'ego' ? C.EGO_TRUST : 0) + (cls === 'tsuri' ? -8 : 0);
-      rikai += fx.rikai + (cls === 'super' ? 3 : 0);
+      const dTrust = fx.trust + (s.tone === 'ego' ? C.EGO_TRUST : 0) + (cls === 'tsuri' ? -8 : 0);
+      const dRikai = fx.rikai + (cls === 'super' ? 3 : 0);
+      trust += dTrust;
+      rikai += dRikai;
       expect += fx.expect + (cls === 'tsuri' ? -10 : 0);
       let dStim = fx.stim + C.SUBJ_STIM[s.t];
       if (dStim > 0 && calm > 0) { calm--; dStim = 0; }      // システマ: 刺激上昇を1回打ち消す
@@ -120,7 +122,7 @@ const Econ = {
       mental = Math.max(0, Math.min(100, mental + dM));
 
       log.push({ id: round.id, cls, open, conv, dBuy, dUp, upRate, dUnsub, list, sales, trueEnd,
-        mental, mentalBefore, dM, killed, bType: b.t, sType: s.t });
+        mental, mentalBefore, dM, dTrust, dRikai, killed, bType: b.t, sType: s.t });
 
       // ラウンド後の小ネタ
       const k = konetaAfter[round.id];
@@ -655,18 +657,26 @@ async function showSendResult(round, idx) {
     gauge.classList.remove('draining');
   }
   HUD.list = simAfter.list; HUD.unsub = simAfter.unsub;
-  // メンタルも同じ場面で動かす。増減は必ず数字で出す
-  if (step.mental !== step.mentalBefore) {
-    const d = step.mental - step.mentalBefore;
+  // メンタル・信用・顧客理解の増減を1行にまとめて出す
+  const dM = step.mental - step.mentalBefore;
+  const rows = [['メンタル', dM, 'g-mental'], ['信用', step.dTrust, 'g-trust'],
+    ['顧客理解', step.dRikai, 'g-rikai']].filter(x => Math.round(x[1]) !== 0);
+  if (rows.length) {
     const mf = $('#mental-fill');
-    mf.style.outline = `1px solid var(--${d < 0 ? 'red' : 'green'})`;
-    Sfx.play(d < 0 ? 'miss' : 'correct');
-    const tag = mentalTag(d);
-    stage().querySelector('.send-mental').appendChild(tag);
-    await tween(step.mentalBefore, step.mental, 700, v => { HUD.mental = v; paintHud(); });
+    mf.style.outline = `1px solid var(--${rows[0][1] < 0 ? 'red' : 'green'})`;
+    Sfx.play(rows[0][1] < 0 ? 'miss' : 'correct');
+    stage().querySelector('.send-mental').appendChild(statTag(rows));
+    const t0 = { m: HUD.mental, t: HUD.trust, r: HUD.rikai };
+    await tween(0, 1, 700, t => {
+      HUD.mental = t0.m + dM * t;
+      HUD.trust = t0.t + step.dTrust * t;
+      HUD.rikai = t0.r + step.dRikai * t;
+      paintHud();
+    });
     setTimeout(() => { mf.style.outline = ''; }, FAST ? 0 : 500);
   }
-  HUD.mental = step.mental; paintHud();
+  HUD.mental = step.mental;
+  HUD.trust = simAfter.trust; HUD.rikai = simAfter.rikai; paintHud();
   // 今回の売上（解除の下。1通ぶんの成果をここで締める）
   const dSales = simAfter.sales - simBefore.sales;
   const salesEl = stage().querySelector('.send-sales');
@@ -725,26 +735,42 @@ function voicesFor(round, pick, step) {
 
 /* メンタルが動いたことを、その場で見せる。原因（選択）の直後に出さないと
    何で減ったのか分からなくなる */
-async function showMentalDelta(before) {
+async function showMentalDelta(b4) {
+  const before = { mental: b4.mental != null ? b4.mental : b4, trust: b4.trust, rikai: b4.rikai };
   syncHudTo(S.rounds.filter(Boolean).length);   // いまの小ネタまで含めて再計算
-  const after = HUD.mental;
-  if (Math.round(after) === Math.round(before)) { paintHud(); return; }
-  HUD.mental = before;
-  stage().appendChild(mentalTag(after - before));
+  const after = { mental: HUD.mental, trust: HUD.trust, rikai: HUD.rikai };
+  const rows = [['メンタル', after.mental - before.mental, 'g-mental'],
+    ['信用', after.trust - (before.trust || 0), 'g-trust'],
+    ['顧客理解', after.rikai - (before.rikai || 0), 'g-rikai']]
+    .filter(x => before[{ 'メンタル': 'mental', '信用': 'trust', '顧客理解': 'rikai' }[x[0]]] != null)
+    .filter(x => Math.round(x[1]) !== 0);
+  if (!rows.length) { paintHud(); return; }
+  Object.assign(HUD, before);
+  stage().appendChild(statTag(rows));
   const mf = $('#mental-fill');
-  mf.style.outline = `1px solid var(--${after < before ? 'red' : 'green'})`;
-  Sfx.play(after < before ? 'miss' : 'correct');
-  await tween(before, after, 600, v => { HUD.mental = v; paintHud(); });
-  HUD.mental = after; paintHud();
+  const down = rows[0][1] < 0;
+  mf.style.outline = `1px solid var(--${down ? 'red' : 'green'})`;
+  Sfx.play(down ? 'miss' : 'correct');
+  await tween(0, 1, 600, t => {
+    HUD.mental = before.mental + (after.mental - before.mental) * t;
+    HUD.trust = before.trust + (after.trust - before.trust) * t;
+    HUD.rikai = before.rikai + (after.rikai - before.rikai) * t;
+    paintHud();
+  });
+  Object.assign(HUD, after); paintHud();
   setTimeout(() => { mf.style.outline = ''; }, FAST ? 0 : 500);
 }
-/* 「メンタル -5」「メンタル +10」。増減は必ず数字で見せる */
-function mentalTag(d) {
+/* 「メンタル −5　信用 +6　顧客理解 +5」。増減は必ず数字で見せる。
+   0のものは出さない＝動いたものだけが並ぶ */
+function statTag(list) {
   const el = document.createElement('div');
-  el.className = 'mental-tag ' + (d < 0 ? 'down' : 'up');
-  el.textContent = `メンタル ${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}`;
+  el.className = 'mental-tag';
+  el.innerHTML = list.filter(x => Math.round(x[1]) !== 0).map(([name, d, cls]) =>
+    `<span class="${cls} ${d < 0 ? 'down' : 'up'}">${name} ${d > 0 ? '+' : '−'}${Math.abs(Math.round(d))}</span>`
+  ).join('　');
   return el;
 }
+function mentalTag(d) { return statTag([['メンタル', d, 'g-mental']]); }
 
 /* 小ネタ。1つ5〜15秒で終わらせる。続きの選択（then）を持つものだけ2段になる */
 function konetaPick(list) {
@@ -768,7 +794,7 @@ async function runKoneta(k) {
   art(beatArt(k.id));
   await showLines(k.intro);
   const c = await konetaPick(k.choices);
-  const m0 = HUD.mental;
+  const m0 = { mental: HUD.mental, trust: HUD.trust, rikai: HUD.rikai };
   S.koneta[k.id] = c.key; save();
   Sfx.play(c.good ? 'correct' : 'miss');
   if (k.effect === 'calm' && c.good) art('face_breath');      // システマ呼吸
@@ -790,7 +816,7 @@ async function runKoneta(k) {
   if (k.then) {
     await showLines(k.then.intro);
     const c2 = await konetaPick(k.then.choices);
-    const m1 = HUD.mental;
+    const m1 = { mental: HUD.mental, trust: HUD.trust, rikai: HUD.rikai };
     S.koneta[k.id + '_2'] = c2.key; save();
     Sfx.play(c2.good ? 'correct' : 'miss');
     await showLines(c2.reaction, { noTap: true });

@@ -52,7 +52,7 @@ console.log('T1 王道ルート');
 console.log('T2 強引ルート');
 {
   const sim = Econ.simulate(route('B', 'B'));
-  check(`全B×B フロント=${sim.buyers}本（本体は売れる）`, sim.buyers >= 600);
+  check(`全B×B フロント=${sim.buyers}本（本体は売れる）`, sim.buyers >= 550);
   check(`全B×B アップセル=${sim.upsells}本（信用がないので進まない）`, sim.upsells <= 30);
   check(`全B×B 売上=${(sim.sales / M).toFixed(1)}M ≤150M`, sim.sales <= 150 * M);
   check(`全B×B 解除=${sim.unsub} ≥6000`, sim.unsub >= 6000);

@@ -20,10 +20,10 @@ const CONF = {
   UNSUB_BASE: { A: 0.0007, B: 0.0145, C: 0.0010, D: 0.0300 },
   // 選択が隠しパラメータへ与える増分（本文型で決まる）
   FX: {
-    A: { trust: +6, rikai: +5, expect: +5, stim: 0 },
-    B: { trust: -2, rikai: 0, expect: +4, stim: +0.16 },
-    C: { trust: 0, rikai: 0, expect: -2, stim: 0 },
-    D: { trust: -9, rikai: -2, expect: -6, stim: +0.10 },
+    A: { trust: +6, rikai: +5, expect: +5, stim: 0 },      // 正直＝両方伸びる
+    B: { trust: -2, rikai: -2, expect: +4, stim: +0.16 },  // 煽ると相手が見えなくなる
+    C: { trust: +1, rikai: +2, expect: -2, stim: 0 },      // 説明は理解だけ少し進む
+    D: { trust: -9, rikai: -3, expect: -6, stim: +0.10 },  // 上から目線＝両方削れる
   },
   SUBJ_STIM: { A: 0, B: +0.06, C: 0, D: +0.03 },   // 件名側の刺激
   // 件名tone × 本文tone の整合
