@@ -191,13 +191,13 @@
   .verdict-copy { font-size: 19px; font-weight: bold; line-height: 1.7; margin-top: 16px; }
   .retry-q { text-align: center; margin-top: 26px; color: var(--text); }
 
-  .ranks { margin-top: 2vh; }
-  .rank-rows { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  /* 小さいiPhoneでも9行が1画面に収まる高さ（収まらないと下の行が読まれない） */
+  .ranks { margin-top: 1vh; }
+  .rank-rows { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
   .rank-row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line);
-    padding: 6px 4px; font-size: 15px; }
+    padding: 5px 4px; font-size: 15px; }
   .rank-v { color: var(--gold); font-weight: bold; }
-  .munedo { text-align: center; margin-top: 26px; transition: opacity .8s; }
-  .munedo.hidden { opacity: 0; }
+  .munedo { text-align: center; margin-top: 8vh; }
   .munedo-main { font-size: 22px; font-weight: bold; color: var(--gold); }
   .munedo-sub { color: var(--dim); margin-top: 8px; font-size: 13px; }
   /* 「何を評価されたのか」を1行で。総合ランクとの違いをここで切り分ける */
@@ -267,13 +267,13 @@
   <div id="choices"></div>
   <div id="spacer"></div>
 </div>
-<script src="js/data.js?v=202608112025"></script>
-<script src="js/art.js?v=202608112025"></script>
-<script src="js/scenes1.js?v=202608112025"></script>
-<script src="js/scenes2.js?v=202608112025"></script>
-<script src="js/scenes3.js?v=202608112025"></script>
-<script src="js/scenes4.js?v=202608112025"></script>
-<script src="js/sfx.js?v=202608112025"></script>
-<script src="js/game.js?v=202608112025"></script>
+<script src="js/data.js?v=202608112033"></script>
+<script src="js/art.js?v=202608112033"></script>
+<script src="js/scenes1.js?v=202608112033"></script>
+<script src="js/scenes2.js?v=202608112033"></script>
+<script src="js/scenes3.js?v=202608112033"></script>
+<script src="js/scenes4.js?v=202608112033"></script>
+<script src="js/sfx.js?v=202608112033"></script>
+<script src="js/game.js?v=202608112033"></script>
 </body>
 </html>

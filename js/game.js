@@ -971,14 +971,10 @@ async function runRanks() {
     ['アップセル', `${fmtNum(sim.upsells)}本`],
     ['メルマガ解除', `${fmtNum(sim.unsub)}人`], ['顧客満足', `${sim.satisfy}%`],
   ];
+  /* 成績の9行と、総合・村上宗嗣度は別ページにする。
+     1枚に収めると、スマホでは村上宗嗣度が画面の外に出て誰にも読まれない */
   stage().innerHTML = `<div class="ranks"><div class="res-label">RESULT</div>
-    <div class="rank-rows"></div>
-    <div class="munedo hidden">
-      <div class="sogo">総合　<span class="sogo-rank">${sim.rank}</span></div>
-      <div class="munedo-main">村上宗嗣度　${sim.munedo}%</div>
-      <div class="munedo-note">売上ではなく、書き方で決まる。<br>
-        正直に書いた通数・顧客理解・思いやり・気遣いポイントの積み上げ</div>
-      <div class="munedo-sub"></div></div></div>`;
+    <div class="rank-rows"></div></div>`;
   choicesEl().innerHTML = '';
   const rowsEl = stage().querySelector('.rank-rows');
   for (const [k, v] of rows) {
@@ -990,8 +986,16 @@ async function runRanks() {
     await wait(380);
   }
   await wait(500);
+  await new Promise(r => tapToContinue(r));
+  // ここからが本題。売上ではなく、書き方の点数
+  stage().innerHTML = `<div class="ranks"><div class="munedo">
+      <div class="sogo">総合　<span class="sogo-rank">${sim.rank}</span></div>
+      <div class="munedo-main">村上宗嗣度　${sim.munedo}%</div>
+      <div class="munedo-note">売上ではなく、書き方で決まる。<br>
+        正直に書いた通数・顧客理解・思いやり・気遣いポイントの積み上げ</div>
+      <div class="munedo-sub"></div></div></div>`;
+  stage().scrollTop = 0;
   const mune = stage().querySelector('.munedo');
-  mune.classList.remove('hidden');
   // 「5億超えたのにBなの？」の一言
   // Bは2通りある。「焼いて超えた」と「焼かずに、あと少しで届かなかった」
   if (sim.rank === 'B') mune.querySelector('.munedo-sub').textContent =
