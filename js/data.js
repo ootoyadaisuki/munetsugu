@@ -176,7 +176,8 @@ const ROUNDS = [
       C: { stay: '支払い方法は分かりました。' },
       D: { out: '見下された気がしました。' },
     },
-    storySubj: { t: 'A', tone: 'honest', text: '36ヶ月前、僕は人生を諦めかけていました。' },
+    storySubj: { t: 'A', tone: 'honest', crown: true,
+      text: '36ヶ月前、僕は人生を諦めかけていました。' },
     lead: '開封はされている。——が、売れていない。',
   },
   {

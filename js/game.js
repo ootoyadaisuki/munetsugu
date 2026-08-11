@@ -395,8 +395,9 @@ function pickChoice(items, label, toText, opts = {}) {
     }
     shuffled(items).forEach(it => {
       const b = document.createElement('button');
-      b.className = 'choice';
-      b.textContent = toText(it);
+      // 小ネタで正解したときだけ出る選択肢には👑をつける（＝拾った甲斐が目に見える）
+      b.className = 'choice' + (it.crown ? ' crown' : '');
+      b.textContent = (it.crown ? '👑 ' : '') + toText(it);
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
       choicesEl().appendChild(b);
     });
