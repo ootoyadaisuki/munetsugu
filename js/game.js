@@ -773,11 +773,17 @@ async function runKoneta(k) {
   const m0 = HUD.mental;
   S.koneta[k.id] = c.key; save();
   Sfx.play(c.good ? 'correct' : 'miss');
-  await showMentalDelta(m0);
   if (k.effect === 'calm' && c.good) art('face_breath');      // システマ呼吸
   if (k.effect === 'story' && c.good) art('books');           // 少年時代の一冊
   if (k.effect === 'gyaku' && c.good) art('face_red');        // 逆立ち腕立て20回
-  await showLines(c.reaction);
+  /* 反応 →（あれば）読者の反応 → メンタルの増減、をタップで飛ばされない順に出す。
+     増減のタグは、いま読んでいるページの下に足してからタップを待つ */
+  await showLines(c.reaction, c.feedback ? {} : { noTap: true });
+  if (c.feedback) {
+    await showLines(['読者の反応', '', ...c.feedback.map(t => `「${t}」`)], { noTap: true });
+  }
+  await showMentalDelta(m0);
+  await new Promise(r => tapToContinue(r));
   // 気遣いポイントは、ここで初めて画面に出る
   if (k.showKizPt) {
     const pt = Econ.simulate(chosen()).kizPt;
@@ -789,8 +795,9 @@ async function runKoneta(k) {
     const m1 = HUD.mental;
     S.koneta[k.id + '_2'] = c2.key; save();
     Sfx.play(c2.good ? 'correct' : 'miss');
-    await showLines(c2.reaction);
+    await showLines(c2.reaction, { noTap: true });
     await showMentalDelta(m1);
+    await new Promise(r => tapToContinue(r));
   }
   art(beatArt(FLOW[S.beat]));
   next();
