@@ -270,7 +270,9 @@ function moodKey() {
   return 'face_cry';
 }
 const BEAT_ART = { opening: 'face_normal', keisho: 'lp_page',
-  K2: 'phone_flip', K3: 'letter_note', K5: 'phone_flip', K8: 'books',
+  /* K3（差し入れ）は最初に絵を出さない。まだ何も買ってきていないのに
+     物が机に乗っていると、話の順番が合わない。正しく注文できたときだけ出す */
+  K2: 'phone_flip', K5: 'phone_flip', K8: 'books',
   result: 'result_bg', verdict: 'result_bg', ranks: 'result_bg', ending: 'epilogue_sky' };
 /* セールス中は部屋を出さない。売上のペースで変わる顔だけを見せる */
 function beatArt(beat) { return BEAT_ART[beat] || moodKey(); }
@@ -859,6 +861,7 @@ async function runKoneta(k) {
   Sfx.play(c.good ? 'correct' : 'miss');
   if (k.effect === 'calm' && c.good) art('face_breath');      // システマ呼吸
   if (k.effect === 'story' && c.good) art('books');           // 少年時代の一冊
+  if (k.id === 'K3' && c.good) art('chai');                   // 届いたチャイティーラテ
   if (k.effect === 'gyaku' && c.good) art('face_red');        // 逆立ち腕立て20回
   /* 反応 →（あれば）読者の反応 → メンタルの増減、をタップで飛ばされない順に出す。
      増減のタグは、いま読んでいるページの下に足してからタップを待つ */

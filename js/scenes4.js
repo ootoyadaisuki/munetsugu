@@ -588,3 +588,99 @@ ART.epilogue_sky = () => {
   _c.globalAlpha = 0.10; P(0, 0, 360, 90, '#0a1a2e'); _c.globalAlpha = 1;
   scanlines(0, 0, 360, 200, 0.04);
 };
+
+/* ── 小ネタK3「差し入れ」の払い ──────────────────────
+   注文を最後まで正確に伝えたときだけ出す絵。
+   届いたチャイティーラテ（テイクアウトの紙カップ）と、自分で入れるアガベシロップ。
+   ——「なんでもいい」と言わなかった人の机の上。
+   ※実在のロゴ・店名は描かない。スリーブは無地。 */
+ART.chai = () => {
+  // 部屋と机（books と同じ机＝同じ部屋にいることが分かる）
+  P(0, 0, 360, 200, lit(PAL.navy, 0.55));
+  vgrad(0, 0, 360, 70, lit(PAL.night, 1.1), lit(PAL.navy, 0.85), 6);
+  P(0, 70, 360, 4, lit(PAL.amber, 1.2));
+  P(0, 74, 360, 126, PAL.amber);
+  P(0, 86, 360, 114, lit(PAL.amber, 0.72));
+  for (let i = 0; i < 11; i++) {
+    P(6 + i * 33, 92 + Math.floor(hash(i + 3) * 96), 24 + hash(i + 6) * 28, 1, lit(PAL.amber, 0.56));
+  }
+  glow(168, 118, 150, PAL.amber, 0.20);
+
+  /* --- 紙カップ（下すぼまりの台形。上ほど広い） --- */
+  const CX = 168, TOP = 74, BOT = 168, WT = 25, WB = 18;   // 半幅
+  _c.globalAlpha = 0.32;                                    // 接地の影
+  P(CX - WB - 3, BOT + 1, WB * 2 + 12, 3, '#241606');
+  _c.globalAlpha = 1;
+  for (let y = TOP; y <= BOT; y++) {
+    const t = (y - TOP) / (BOT - TOP);
+    const w = Math.round(WT + (WB - WT) * t);
+    P(CX - w, y, w * 2, 1, lit(PAL.paper, 0.94));
+    P(CX - w, y, 3, 1, lit(PAL.paper, 1.06));               // 左＝光の当たる側
+    P(CX + w - 4, y, 4, 1, lit(PAL.paper, 0.74));           // 右＝回り込みの陰
+  }
+  // 蓋（カップより一回り広い。縁が立ち上がり、飲み口のタブが手前に出る）
+  P(CX - WT - 3, TOP - 7, (WT + 3) * 2, 7, lit(PAL.paper, 0.76));
+  P(CX - WT - 3, TOP - 7, (WT + 3) * 2, 2, lit(PAL.paper, 0.92));
+  P(CX - WT - 3, TOP - 1, (WT + 3) * 2, 1, lit(PAL.paper, 0.6));
+  P(CX + 4, TOP - 10, 13, 4, lit(PAL.paper, 0.84));         // 飲み口のタブ
+  P(CX + 4, TOP - 10, 13, 1, lit(PAL.paper, 1.0));
+
+  /* --- スリーブ（無地の厚紙。段ボールの目を縦に入れる） --- */
+  const SY = 106, SH2 = 30;
+  for (let y = SY; y < SY + SH2; y++) {
+    const t = (y - TOP) / (BOT - TOP);
+    const w = Math.round(WT + (WB - WT) * t) + 1;
+    P(CX - w, y, w * 2, 1, '#9a6634');
+    P(CX - w, y, 3, 1, lit('#9a6634', 1.22));
+    P(CX + w - 4, y, 4, 1, lit('#9a6634', 0.72));
+  }
+  for (let i = 0; i < 13; i++) {                            // 段の目
+    const x = CX - 20 + i * 3;
+    P(x, SY + 2, 1, SH2 - 4, lit('#9a6634', 1.12));
+  }
+  P(CX - WT, SY, WT * 2 + 1, 1, lit('#9a6634', 1.4));       // 上端の光
+  P(CX - WB - 1, SY + SH2 - 1, WB * 2 + 3, 1, lit('#9a6634', 0.62));
+
+  /* --- 湯気（静止画なので、上へ細くほどける形で固定する） --- */
+  for (let s = 0; s < 3; s++) {
+    const bx = CX - 12 + s * 12;
+    for (let i = 0; i < 22; i++) {
+      _c.globalAlpha = 0.30 * (1 - i / 22);
+      D(bx + Math.round(Math.sin(i * 0.34 + s * 1.7) * (2 + i * 0.12)), TOP - 12 - i, PAL.white);
+      _c.globalAlpha = 1;
+    }
+  }
+
+  /* --- アガベシロップの小瓶（後から自分で入れる） --- */
+  const AX2 = 246, AY2 = 118, AW2 = 22, AH2 = 46;
+  _c.globalAlpha = 0.30;
+  P(AX2 - 2, AY2 + AH2, AW2 + 8, 3, '#241606');
+  _c.globalAlpha = 1;
+  P(AX2, AY2 + 6, AW2, AH2 - 6, lit(PAL.amber, 0.62));      // 瓶
+  P(AX2 + 2, AY2 + 16, AW2 - 4, AH2 - 20, lit('#8a5a1c', 1.1));  // 中身（琥珀の液）
+  P(AX2, AY2 + 6, 3, AH2 - 6, lit(PAL.amber, 1.05));        // 左の光
+  P(AX2 + AW2 - 3, AY2 + 8, 3, AH2 - 8, lit(PAL.amber, 0.4));
+  P(AX2 + 6, AY2, 10, 8, lit(PAL.gold, 0.62));              // 首とキャップ
+  P(AX2 + 5, AY2 - 4, 12, 5, PAL.gold);
+  P(AX2 + 5, AY2 - 4, 12, 1, lit(PAL.gold, 1.35));
+  P(AX2 + 3, AY2 + 24, AW2 - 6, 10, lit(PAL.paper, 0.9));   // ラベル（文字は描かない）
+  P(AX2 + 5, AY2 + 27, AW2 - 12, 1, lit(PAL.amber, 0.7));
+  P(AX2 + 5, AY2 + 30, AW2 - 16, 1, lit(PAL.amber, 0.55));
+
+  /* --- スタッフのメモ（注文を書き取った紙。字は読めない罫で示す） --- */
+  const MX = 52, MY = 132;
+  _c.globalAlpha = 0.26;
+  P(MX + 3, MY + 4, 62, 34, '#241606');
+  _c.globalAlpha = 1;
+  P(MX, MY, 62, 34, PAL.paper);
+  P(MX, MY, 62, 1, lit(PAL.paper, 1.1));
+  P(MX, MY + 33, 62, 1, lit(PAL.paper, 0.72));
+  for (let i = 0; i < 5; i++) {
+    const w = 22 + Math.round(hash(i * 7 + 2) * 30);
+    P(MX + 5, MY + 6 + i * 6, w, 1, lit(PAL.navy, 2.2));
+  }
+  P(MX + 5, MY + 6, 12, 1, lit(PAL.red, 1.1));              // 1行目だけ赤で囲った＝復唱した箇所
+
+  _c.globalAlpha = 0.10; P(0, 0, 360, 60, '#0a1a2e'); _c.globalAlpha = 1;
+  scanlines(0, 0, 360, 200, 0.05);
+};
