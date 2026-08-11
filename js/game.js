@@ -660,7 +660,7 @@ async function showSendResult(round, idx) {
 
   // 送信演出
   stage().innerHTML = `<div class="send-wrap">
-    <div class="send-subject">「${round.subjects['ABCD'.indexOf(pick.s)].text}」</div>
+    <div class="send-subject">「${withCrown(round, 'subjects')['ABCD'.indexOf(pick.s)].text}」</div>
     <div class="send-state">送信中……</div>
     <div class="send-open"></div><div class="send-buy"></div><div class="send-upsell"></div>
     <div class="send-unsub"></div><div class="send-mental"></div>
@@ -778,15 +778,19 @@ function voicesFor(round, pick, step) {
     : three(byType.buy, VOICE_POOL.buy[pick.b]);
   /* 伊勢さんに「聞いてみます」と答えたうえで、実際に第6通で買わない理由を聞いた場合だけ、
      本音の返信が返ってくる。ここで出る不安が、そのまま第11通の答えになる */
-  const kiku = round.special === 'r6_combo' && pick.b === 'A' && S.koneta.K4 === 'B' && v.kiku;
-  const stay = kiku ? v.kiku.slice(0, 3) : three(byType.stay, VOICE_POOL.stay[pick.b]);
+  const asked = round.special === 'r6_combo' && pick.b === 'A';
+  const kiku = asked && S.koneta.K4 === 'B' && v.kiku;
+  // 相談せずに聞いた場合も返信は来る。ただし、まだ言葉になっていない
+  const thin = asked && !kiku && v.kikuThin;
+  const stay = kiku ? v.kiku.slice(0, 3) : thin ? v.kikuThin.slice(0, 3)
+    : three(byType.stay, VOICE_POOL.stay[pick.b]);
   // 解除は1人でも出たら声を出す（少ないときは1本だけ＝重くしない）
   let out = [];
   if (step.dUnsub > 0) {
     const first = (step.cls === 'tsuri' && v.tsuri) ? v.tsuri.out : byType.out;
     out = three(first, VOICE_POOL.out[pick.b]).filter(Boolean).slice(0, step.dUnsub > 30 ? 3 : 1);
   }
-  return { buy, stay, out, stayHead: kiku ? '返信が届いた' : '未購入者の声' };
+  return { buy, stay, out, stayHead: (kiku || thin) ? '返信が届いた' : '未購入者の声' };
 }
 
 /* メンタルが動いたことを、その場で見せる。原因（選択）の直後に出さないと
