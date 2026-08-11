@@ -309,15 +309,17 @@ ART.books = () => {
   // 部屋（背景は徹底して引く。見せたいのは机の上の2冊だけ）
   P(0, 0, 360, 200, lit(PAL.navy, 0.55));
   vgrad(0, 0, 360, 72, lit(PAL.night, 1.1), lit(PAL.navy, 0.85), 6);
-  // テーブル（奥のエッジで面を作る。木目は hash で長さを崩す）
-  P(0, 72, 360, 4, lit(PAL.amber, 1.2));
-  P(0, 76, 360, 124, PAL.amber);
-  P(0, 88, 360, 112, lit(PAL.amber, 0.72));
+  /* テーブル。飴色の木だと本の背（青・赤）が同じ明度で沈むので、
+     暗く冷たい木にする。本が主役＝机は色を持たない */
+  const DESK = '#2e2a33';
+  P(0, 72, 360, 4, lit(DESK, 1.5));
+  P(0, 76, 360, 124, DESK);
+  P(0, 88, 360, 112, lit(DESK, 0.82));
   for (let i = 0; i < 11; i++) {
-    P(4 + i * 34, 92 + Math.floor(hash(i) * 100), 26 + hash(i + 4) * 30, 1, lit(PAL.amber, 0.56));
+    P(4 + i * 34, 92 + Math.floor(hash(i) * 100), 26 + hash(i + 4) * 30, 1, lit(DESK, 1.22));
   }
   // 真上からの静かな光（2冊のあいだに落ちる）
-  glow(180, 122, 160, PAL.amber, 0.20);
+  glow(180, 122, 160, PAL.paper, 0.09);
 
   /* --- 左：高い教材（分厚い新品の本）--------------------------------
      直線しかない。角は直角、小口は真っ平ら、面は艶あり、帯は掛かったまま。
@@ -326,8 +328,9 @@ ART.books = () => {
   _c.globalAlpha = 0.34;                                        // 影（硬い＝浮いていない）
   P(AX + 6, AY + AH + ATH + 1, AW, 3, '#241606');
   _c.globalAlpha = 1;
+  // 背は青（右のボロボロ本＝赤と、ひと目で撃ち分ける）
   const a = _bookSolid(AX, AY, AW, AH, ATH, SH, PAL.slate, {
-    spine: lit(PAL.slate, 1.05), pageA: PAL.white, pageB: lit(PAL.white, 0.86),
+    spine: '#3f6fd8', pageA: PAL.white, pageB: lit(PAL.white, 0.86),
   });
   // 箔押しの飾り罫（文字は描かない。読めない罫だけ）
   for (let r = 10; r < 13; r++) P(AX + r * SH + 12, AY + r, 58, 1, PAL.gold);
@@ -353,14 +356,14 @@ ART.books = () => {
 
   /* --- 右：ボロボロの小説（同じ形の「一冊の本」。違うのは状態だけ）-----
      角は丸く削れ、小口は波打って膨らみ、背は割れて中身が見えかけている。 */
-  // 表紙は褪せた赤い布装。机の飴色に沈まないよう、左の紺と同じくらい机から浮く色を選ぶ
-  const WORN = lit(PAL.red, 0.62);
+  // 表紙は褪せた赤い布装（背の赤より一段落として、表紙と背を切り分ける）
+  const WORN = lit(PAL.red, 0.72);
   const BX = 212, BY = 84, BW = 88, BH = 52, BTH = 24;
   _c.globalAlpha = 0.32;                                        // 影（低く広がる＝沈んでいる）
   P(BX + 4, BY + BH + BTH + 2, BW + 2, 3, '#241606');
   _c.globalAlpha = 1;
   const b = _bookSolid(BX, BY, BW, BH, BTH, SH, WORN, {
-    worn: true, spine: lit(PAL.red, 0.72),
+    worn: true, spine: '#d24a40',                               // 背は赤
     pageA: lit(PAL.paper, 0.88), pageB: lit(PAL.paper, 0.66),   // 焼けて黄ばんだ小口
   });
   // 背割れ（左のふくらみに走る白い筋。位置も長さもバラして「等間隔の穴」に見せない）
