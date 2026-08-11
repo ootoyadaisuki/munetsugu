@@ -16,6 +16,7 @@
 - 出典: 伊藤UN掲載の略歴PDF（ito-un.com/pdf/kurozu-ryakureki.pdf）ほか複数ブログ一致
 
 ### 前史（プロローグ素材）
+- **元ヤクザ**。チンピラの子分として働き、睡眠は一日3時間程度、携帯が鳴ればいつでも出る生活
 - 重度のうつ病、借金800万円、自殺未遂を繰り返すドン底生活
 - ネットビジネス参入から**7ヶ月で年収1,000万円**
 - 「低学歴遅咲き27歳で最底辺から這い上がり」（本人Podcastプロフィール表現）
@@ -48,3 +49,7 @@
 - https://stand.fm/channels/67c2bf7c9dcfb50335bae6e3 （現在のプロフィール）
 - https://infojoho.org/blog/村上宗嗣/murakami-munetsugu/ （経歴まとめ・403のため検索スニペットのみ）
 - https://information2.net/mukami-munetugu/ （株式会社地球人 2014年設立）
+- https://information2.net/murakami-munetugu/ （元ヤクザ・借金800万円・重度のウツからの経歴）
+- https://podcastranking.jp/1801658198 （Podcast「嫌でも元気になるラジオby村上むねつぐ」の
+  プロフィール。300社以上へのエンジェル投資／グループ年商156億／養護施設や非営利団体の複数の理事／
+  「低学歴遅咲き27歳で最底辺から這い上がり」／「要は、楽しいことだけやる」とマインドフルな毎日）
