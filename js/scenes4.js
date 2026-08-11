@@ -215,217 +215,154 @@ ART.server_down = () => {
   scanlines(0, 0, 360, 200, 0.10);
 };
 
-/* ---- books の共通骨格 ----------------------------------------------
-   左右を「同じ種類の物体」に見せるため、2冊とも同じ関数で描く。
-   投影は 3/4 の平置き（表紙を上に、少しだけ右へ倒す＝行ごとに sh だけずらす）。
-   見える面は3つ:
-     ・表紙（上面。パラレログラム）
-     ・小口＝ページの側面（下辺から下へ厚みぶん。層になった横線が「本」の署名になる）
-     ・背（左辺のふくらみ）
-   新品と使い込みの差は opts.worn だけ——角が丸いか／小口が波打つか／背が割れるか。 */
-function _bookSolid(x, y, w, h, thick, sh, cover, opts) {
+/* ── 幕間 PM4:00 教材 ──────────────────────
+   「教材はない。あるのは、ボロボロになった一冊の小説。」
+   机を真上から見下ろした構図。斜め投影をやめたので、見えるのは
+     ・表紙（長方形）
+     ・背表紙（左端の帯。丸背なので少しふくらむ）
+     ・小口（右端からのぞくページの束）
+   の3つだけ。左＝一度も開かれていない新品（青い背）、右＝読み込まれた小説（赤い背）。
+   ※実在の書名は描かない。題字は読めないダミーの罫だけ。 */
+
+/* 真上から見た一冊。左端が背表紙、右端が小口。worn で状態だけが変わる */
+function _bookTop(x, y, w, h, cover, spine, opts) {
   opts = opts || {};
   const worn = !!opts.worn;
-  const spine = opts.spine || lit(cover, 0.62);
-  const pgA = opts.pageA || PAL.paper;
-  const pgB = opts.pageB || lit(PAL.paper, 0.8);
-
-  /* 角の丸み（使い込んだ本は四隅が削れて丸い。新品は0＝ぴしっと直角） */
-  const inset = (r) => {
+  const SP = 13;                                   // 背表紙の幅
+  const corner = (r) => {                          // 使い込んだ本は四隅が丸い
     if (!worn) return 0;
     const d = Math.min(r, h - 1 - r);
     return d === 0 ? 3 : d === 1 ? 2 : d === 2 ? 1 : 0;
   };
 
-  const bx0 = x + (h - 1) * sh;                     // 下辺（＝小口が並ぶ辺）の左端
-  const bIn = inset(h - 1);
+  // 机に落ちる影（真上からの光なので、四方へ薄く均等に出る）
+  _c.globalAlpha = 0.34;
+  P(x + 3, y + 4, w + 2, h, '#000');
+  _c.globalAlpha = 1;
 
-  /* --- 小口（ページの束）。列ごとに厚みを変えて膨らませる ---
-     ここが「紙の束」と「一冊の本」を分ける最重要部。層の線を必ず入れる。 */
-  const depth = [];
-  for (let c = 0; c < w; c++) {
-    if (c < bIn || c > w - 1 - bIn) { depth.push(0); continue; }
-    // 波打ち（何十回も開かれてページが膨らんだ形）。新品は完全に平ら。
-    // 振幅は控えめに——大きく振ると小口がギザギザの毛羽になって「本」に見えなくなる
-    const wave = worn
-      ? Math.round(Math.sin(c * 0.32) * 1.3 + Math.sin(c * 0.09 + 1.3) * 1.1)
-      : 0;
-    const d = Math.max(4, thick + wave);
-    depth.push(d);
-    for (let t = 0; t < d; t++) {
-      let col;
-      if (t === 0) col = lit(cover, 0.75);          // 表紙の板の小口（芯が見える1px）
-      else if (c < 7) col = spine;                  // 背のまわり込み
-      else col = (t % 3 === 2) ? lit(pgB, 0.72) : (t % 2 ? pgB : pgA);
-      D(bx0 + c, y + h + t, col);
-    }
-    D(bx0 + c, y + h + d, lit(PAL.night, 1.25));    // 接地の影
-  }
-
-  /* --- 背（左のふくらみ）---------------------------------------------
-     ここを 3px の暗い線で済ませると、机の飴色に沈んで「背表紙が無い本」に見える。
-     幅を取って丸みを塗り分け、外側は光を拾う縁、その外に机への落ち影を1本。
-     これで背が面として立ち上がる。 */
-  const BULGE = 9;
+  /* --- 小口（右端。ページの束が表紙の下からのぞく） --- */
   for (let r = 0; r < h; r++) {
-    const ins = inset(r);
-    if (ins > 2) continue;
-    const bulge = BULGE - (worn && Math.sin(r * 0.45) < -0.4 ? 1 : 0);   // 使い込み＝波打つ
-    for (let b = 1; b <= bulge; b++) {
-      const t = b / bulge;                               // 0=表紙寄り 1=いちばん外
-      // 丸背の陰影: 中ほどが最も光り、外へ回り込むほど落ちる。最外の1pxだけ縁が照る
-      const k = b === bulge ? 1.6 : 0.78 + Math.sin(t * Math.PI) * 0.62;
-      D(x + r * sh - b + ins, y + r, lit(spine, k));
-    }
-    D(x + r * sh - bulge - 1 + ins, y + r, lit(PAL.night, 1.0));    // 机に落ちる影
-  }
-  /* 背バンド（天と地の帯）。本の背だと一目で分かる signature */
-  for (const r of [2, 3, h - 4, h - 3]) {
-    if (r < 0 || r >= h) continue;
-    for (let b = 1; b <= BULGE; b++) {
-      D(x + r * sh - b + inset(r), y + r, lit(spine, worn ? 0.62 : 1.9));
+    const ins = corner(r);
+    if (ins > 3) continue;
+    // 使い込んだ本は膨らんで波打つ。新品は工場出荷のまま真っ平ら
+    const d = worn ? 5 + Math.round(Math.sin(r * 0.3) * 1.6 + Math.sin(r * 0.08 + 1.1) * 1.2) : 4;
+    for (let i = 0; i < d; i++) {
+      const c = i === d - 1 ? lit(opts.pageB || PAL.paper, 0.62)
+        : (i % 2 ? (opts.pageB || lit(PAL.paper, 0.84)) : (opts.pageA || PAL.paper));
+      D(x + w + i - ins, y + r, c);
     }
   }
 
-  /* --- 表紙（上面） --- */
+  /* --- 表紙 --- */
   for (let r = 0; r < h; r++) {
-    const ins = inset(r);
-    // 日焼け：使い込んだ本は手前ほど褪せる
-    const k = worn ? 0.82 + (r / h) * 0.3 : 1;
-    P(x + r * sh + ins, y + r, w - ins * 2, 1, lit(cover, k));
+    const ins = corner(r);
+    const k = worn ? 0.86 + (r / h) * 0.22 : 1;    // 日焼け（手前ほど褪せる）
+    P(x + ins, y + r, w - ins, 1, lit(cover, k));
   }
-  P(x, y, w, 1, lit(cover, worn ? 1.05 : 1.45));    // 天のエッジ（新品は強く光る）
+  P(x + SP, y, w - SP, 1, lit(cover, 1.3));        // 天のエッジ
+  P(x + SP, y + h - 1, w - SP, 1, lit(cover, 0.7));
 
-  return { bx0: bx0, bIn: bIn, depth: depth };
+  /* --- 背表紙（左端の帯。丸背なので中央がいちばん光る） --- */
+  for (let r = 0; r < h; r++) {
+    const ins = corner(r);
+    if (ins > 3) continue;
+    for (let c = 0; c < SP; c++) {
+      const t = c / (SP - 1);
+      const k = c === 0 ? 0.55 : 0.72 + Math.sin(t * Math.PI) * 0.75;   // 丸みの陰影
+      D(x + c + Math.max(0, ins - c), y + r, lit(spine, k));
+    }
+    D(x - 1 + ins, y + r, lit(PAL.night, 1.0));    // 机との境（背が立ち上がる）
+  }
+  P(x, y, SP, 1, lit(spine, 0.5));                 // 背の天地
+  P(x, y + h - 1, SP, 1, lit(spine, 0.5));
+  // 背バンド（天と地の帯）＝一目で「本の背」と分かる signature
+  for (const r of [5, 6, h - 7, h - 6]) {
+    if (r > 0 && r < h) P(x + 1, y + r, SP - 2, 1, lit(spine, worn ? 0.5 : 1.75));
+  }
+  // 背文字（読めないダミーの罫。縦に並ぶ）
+  for (let i = 0; i < 5; i++) {
+    P(x + 5, y + 22 + i * 11, 3, 6 + Math.round(hash(i + 1) * 3),
+      worn ? lit(PAL.paper, 0.42) : lit(PAL.gold, 0.95));
+  }
+  return { SP: SP };
 }
 
-/* ── 幕間 PM4:00 教材 ──────────────────────
-   「教材はない。あるのは、ボロボロになった一冊の小説。」
-   テーブルの上、真上からの静かな光。左に高い教材（分厚い豪華な本＝帯が掛かったまま、
-   角は直角、小口は工場出荷のまま真っ平ら）、右にボロボロの小説。
-   2冊とも同じ 3/4 投影の「一冊の本」として描き、違うのは状態だけにしてある。
-   ※実在の書名は描かない。題字は読めないダミーの罫だけ。 */
+/* ── 幕間 PM4:00 教材（真上から）────────────────────── */
 ART.books = () => {
-  // 部屋（背景は徹底して引く。見せたいのは机の上の2冊だけ）
-  P(0, 0, 360, 200, lit(PAL.navy, 0.55));
-  vgrad(0, 0, 360, 72, lit(PAL.night, 1.1), lit(PAL.navy, 0.85), 6);
-  /* テーブル。飴色の木だと本の背（青・赤）が同じ明度で沈むので、
-     暗く冷たい木にする。本が主役＝机は色を持たない */
+  /* 机。本の背（青・赤）と明度で殴り合わないよう、暗く冷たい木にする */
   const DESK = '#2e2a33';
-  P(0, 72, 360, 4, lit(DESK, 1.5));
-  P(0, 76, 360, 124, DESK);
-  P(0, 88, 360, 112, lit(DESK, 0.82));
-  for (let i = 0; i < 11; i++) {
-    P(4 + i * 34, 92 + Math.floor(hash(i) * 100), 26 + hash(i + 4) * 30, 1, lit(DESK, 1.22));
+  P(0, 0, 360, 200, DESK);
+  P(0, 0, 360, 26, lit(DESK, 1.28));               // 奥ほど明るい（真上の光）
+  P(0, 174, 360, 26, lit(DESK, 0.78));
+  for (let i = 0; i < 16; i++) {                   // 木目（長さと間隔を崩す）
+    P(hash(i + 2) * 40, 8 + i * 12 + Math.floor(hash(i) * 5),
+      120 + hash(i + 5) * 220, 1, lit(DESK, 1.14));
   }
-  // 真上からの静かな光（2冊のあいだに落ちる）
-  glow(180, 122, 160, PAL.paper, 0.09);
+  for (let i = 0; i < 5; i++) {                    // 傷
+    P(20 + hash(i * 3) * 300, 16 + hash(i * 7) * 170, 8 + hash(i) * 26, 1, lit(DESK, 0.72));
+  }
+  glow(180, 100, 190, PAL.paper, 0.10);            // 真上からの静かな光
 
-  /* --- 左：高い教材（分厚い新品の本）--------------------------------
-     直線しかない。角は直角、小口は真っ平ら、面は艶あり、帯は掛かったまま。
-     ＝一度も開かれていない。 */
-  const AX = 24, AY = 84, AW = 88, AH = 52, ATH = 26, SH = 0.46;
-  _c.globalAlpha = 0.34;                                        // 影（硬い＝浮いていない）
-  P(AX + 6, AY + AH + ATH + 1, AW, 3, '#241606');
-  _c.globalAlpha = 1;
-  // 背は青（右のボロボロ本＝赤と、ひと目で撃ち分ける）
-  const a = _bookSolid(AX, AY, AW, AH, ATH, SH, PAL.slate, {
-    spine: '#3f6fd8', pageA: PAL.white, pageB: lit(PAL.white, 0.86),
-  });
-  // 箔押しの飾り罫（文字は描かない。読めない罫だけ）
-  for (let r = 10; r < 13; r++) P(AX + r * SH + 12, AY + r, 58, 1, PAL.gold);
-  for (let r = 17; r < 18; r++) P(AX + r * SH + 12, AY + r, 40, 1, lit(PAL.gold, 0.72));
-  for (let r = 21; r < 22; r++) P(AX + r * SH + 12, AY + r, 48, 1, lit(PAL.gold, 0.72));
-  P(AX + 6 * SH + 8, AY + 6, AW - 16, 1, lit(PAL.gold, 0.5));   // 罫の囲み（上）
-  P(AX + 45 * SH + 8, AY + 45, AW - 16, 1, lit(PAL.gold, 0.5)); // （下）
-  // 帯（未開封の証拠。表紙の傾きに沿って巻かれている）
-  for (let r = 33; r < 44; r++) {
-    P(AX + r * SH, AY + r, AW, 1, r === 33 ? lit(PAL.red, 1.35) : PAL.red);
+  /* --- 左：新品の教材（青い背。帯が掛かったまま＝一度も開かれていない） --- */
+  const AX = 34, AY = 34, AW = 118, AH = 132;
+  _bookTop(AX, AY, AW, AH, PAL.slate, '#3f6fd8', { pageA: PAL.white, pageB: lit(PAL.white, 0.84) });
+  const cx = AX + 13 + 6;                          // 背表紙のぶんだけ内側から
+  for (let i = 0; i < 3; i++) {                    // 箔押しの飾り罫（文字は描かない）
+    P(cx, AY + 26 + i * 9, [72, 50, 60][i], 2, i === 0 ? PAL.gold : lit(PAL.gold, 0.7));
   }
-  for (let i = 0; i < 4; i++) P(AX + 37 * SH + 8 + i * 18, AY + 37, 11, 2, lit(PAL.paper, 0.92));
-  // シュリンクの継ぎ目（縦に1本、てらてら光る）
-  for (let r = 0; r < AH; r++) D(AX + r * SH + 44, AY + r, lit(PAL.white, 0.55));
-  // 表紙の光沢（PP加工。太く薄い斜めの帯＝傷ではなく、面のてかり）
+  P(cx - 4, AY + 14, AW - 26, 1, lit(PAL.gold, 0.5));       // 罫の囲み
+  P(cx - 4, AY + AH - 16, AW - 26, 1, lit(PAL.gold, 0.5));
+  P(AX + 13, AY + AH - 46, AW - 13, 14, PAL.red);           // 帯（未開封の証拠）
+  P(AX + 13, AY + AH - 46, AW - 13, 1, lit(PAL.red, 1.35));
+  for (let i = 0; i < 4; i++) P(cx + i * 22, AY + AH - 42, 14, 3, lit(PAL.paper, 0.92));
+  for (let r = 0; r < AH; r++) D(AX + 74, AY + r, lit(PAL.white, 0.5));   // シュリンクの継ぎ目
+  for (let i = 0; i < 26; i++) {                            // PP加工のてかり（斜め）
+    _c.globalAlpha = 0.08;
+    P(AX + 30 + i, AY + 96 - i, 14, 2, PAL.white);
+    _c.globalAlpha = 1;
+  }
+  for (let i = 0; i < 8; i++) D(AX + 20 + hash(i + 2) * 92, AY + 3 + hash(i) * 3, lit(PAL.ash, 0.5)); // ほこり
+
+  /* --- 右：ボロボロの小説（赤い背。角が丸く、付箋と栞紐がはみ出す） --- */
+  const BX = 206, BY = 40, BW = 108, BH = 120;
+  const WORN = lit(PAL.red, 0.66);
+  _bookTop(BX, BY, BW, BH, WORN, '#d24a40',
+    { worn: true, pageA: lit(PAL.paper, 0.88), pageB: lit(PAL.paper, 0.64) });
+  // 題字＝褪せて半分消えた罫（実在の書名は描かない）
+  for (let i = 0; i < 2; i++) P(BX + 26, BY + 30 + i * 10, [46, 30][i], 2, lit(PAL.paper, 0.42));
+  P(BX + 26, BY + BH - 30, 26, 1, lit(PAL.paper, 0.3));
+  // 表紙の擦れ（触るところが白っぽく毛羽立つ）
   for (let i = 0; i < 30; i++) {
-    _c.globalAlpha = 0.09;
-    P(AX + 10 + i + (AH - 4 - i) * SH, AY + AH - 4 - i, 12, 2, PAL.white);
+    _c.globalAlpha = 0.16 + hash(i) * 0.2;
+    P(BX + 18 + hash(i * 7) * (BW - 26), BY + 6 + hash(i * 3 + 5) * (BH - 12),
+      1 + hash(i + 2) * 3, 1, lit(PAL.paper, 0.8));
     _c.globalAlpha = 1;
   }
-  // 天に薄く乗ったほこり＝置かれたまま動いていない
-  for (let i = 0; i < 7; i++) D(AX + 8 + hash(i + 2) * 70, AY + 1, lit(PAL.ash, 0.5));
-
-  /* --- 右：ボロボロの小説（同じ形の「一冊の本」。違うのは状態だけ）-----
-     角は丸く削れ、小口は波打って膨らみ、背は割れて中身が見えかけている。 */
-  // 表紙は褪せた赤い布装（背の赤より一段落として、表紙と背を切り分ける）
-  const WORN = lit(PAL.red, 0.72);
-  const BX = 212, BY = 84, BW = 88, BH = 52, BTH = 24;
-  _c.globalAlpha = 0.32;                                        // 影（低く広がる＝沈んでいる）
-  P(BX + 4, BY + BH + BTH + 2, BW + 2, 3, '#241606');
-  _c.globalAlpha = 1;
-  const b = _bookSolid(BX, BY, BW, BH, BTH, SH, WORN, {
-    worn: true, spine: '#d24a40',                               // 背は赤
-    pageA: lit(PAL.paper, 0.88), pageB: lit(PAL.paper, 0.66),   // 焼けて黄ばんだ小口
-  });
-  // 背割れ（左のふくらみに走る白い筋。位置も長さもバラして「等間隔の穴」に見せない）
-  for (let i = 0; i < 5; i++) {
-    const r = 6 + Math.floor(hash(i * 5 + 1) * (BH - 14));
-    const off = 1 + Math.floor(hash(i * 3 + 2) * 3);
-    P(BX + r * SH - off, BY + r, 1 + Math.floor(hash(i) * 2), 1, lit(PAL.paper, 0.62));
-  }
-  P(BX + 19 * SH - 3, BY + 19, 3, 2, lit(PAL.paper, 0.9));      // いちばん深い割れ＝中身が覗く
-  // 題字＝表紙に残った読めないダミーの罫（褪せて半分消えている。実在の書名は描かない）
-  for (let r = 11; r < 13; r++) P(BX + r * SH + 14, BY + r, 40, 1, lit(PAL.paper, 0.45));
-  P(BX + 18 * SH + 14, BY + 18, 24, 1, lit(PAL.paper, 0.3));
-  // 表紙の擦れ（角のまわりと、いちばん触る右下が白っぽく毛羽立つ）
-  for (let i = 0; i < 22; i++) {
-    const r = Math.floor(hash(i * 3 + 5) * BH);
-    const cx = BX + r * SH + 4 + hash(i * 7) * (BW - 10);
-    _c.globalAlpha = 0.18 + hash(i) * 0.2;
-    P(cx, BY + r, 1 + hash(i + 2) * 3, 1, lit(PAL.paper, 0.8));
-    _c.globalAlpha = 1;
-  }
-  // 手垢（親指の当たる右下と、小口の下側が黒ずむ）
-  for (let i = 0; i < 18; i++) {
-    _c.globalAlpha = 0.09 + hash(i) * 0.13;
-    const r = Math.floor(30 + hash(i * 9) * (BH - 32));
-    P(BX + r * SH + BW - 26 + hash(i + 4) * 20, BY + r, 4, 2, '#3a2a1c');
-    _c.globalAlpha = 1;
-  }
-  for (let i = 0; i < 14; i++) {
-    _c.globalAlpha = 0.12 + hash(i + 3) * 0.14;
-    const c = 24 + Math.floor(hash(i * 11) * (BW - 34));
-    P(b.bx0 + c, BY + BH + 6 + hash(i) * 8, 4, 2, '#4a3524');
-    _c.globalAlpha = 1;
-  }
-  // 付箋（小口から数枚だけ下へはみ出す＝挟まっている。長さも色も高さもバラバラ）
-  for (let i = 0; i < 5; i++) {
-    const c = 22 + Math.floor(hash(i * 13 + 2) * (BW - 38));
-    const d = b.depth[c] || BTH;
-    const tl = 5 + Math.floor(hash(i * 4) * 6);
-    const tc = [PAL.gold, PAL.crt, '#d98aa0', lit(PAL.paper, 0.95)][i % 4];
-    const top = BY + BH + Math.floor(d * (0.25 + hash(i + 6) * 0.5));
-    P(b.bx0 + c, top, 4, d, tc);                                // 中に挟まった本体
-    P(b.bx0 + c, BY + BH + d - 1, 4, tl, tc);                   // 下へはみ出したぶん
-    P(b.bx0 + c, BY + BH + d + tl - 1, 4, 1, lit(tc, 0.6));
-  }
-  // ドッグイヤー（下辺の右寄りで、ページの角が1枚折れて飛び出している）
-  for (let i = 0; i < 6; i++) {
-    P(b.bx0 + BW - 16 + i, BY + BH + 3 + i, 5 - i, 1, lit(PAL.paper, 0.95));
-  }
-  // 栞紐（背の側から垂れて、机の上でくたっと曲がる）
+  // 手垢（いちばん触る右下が黒ずむ）
   for (let i = 0; i < 16; i++) {
-    D(b.bx0 + 5 + Math.round(Math.sin(i * 0.5) * 3), BY + BH + BTH + 2 + i, i > 11 ? lit(PAL.red, 0.75) : PAL.red);
-  }
-  P(b.bx0 + 2, BY + BH + BTH + 16, 7, 2, lit(PAL.red, 0.6));    // 机に着いた先端
-
-  // 画面の隅を落として、机の上へ視線を集める
-  for (let i = 0; i < 14; i++) {
-    _c.globalAlpha = 0.03;
-    P(0, 0, 360, 200 - i * 6, '#000');
+    _c.globalAlpha = 0.10 + hash(i) * 0.12;
+    P(BX + BW - 34 + hash(i * 9) * 26, BY + BH - 40 + hash(i * 5) * 32, 5, 2, '#2a1c14');
     _c.globalAlpha = 1;
   }
+  // 付箋（小口から右へはみ出す。幅も長さも位置もバラバラ）
+  for (let i = 0; i < 5; i++) {
+    const r = 12 + Math.floor(hash(i * 13 + 2) * (BH - 26));
+    const tl = 6 + Math.floor(hash(i * 4) * 7);
+    const tc = [PAL.gold, PAL.crt, '#d98aa0', lit(PAL.paper, 0.95)][i % 4];
+    P(BX + BW + 3, r + BY, tl, 4, tc);
+    P(BX + BW + 3 + tl - 1, r + BY, 1, 4, lit(tc, 0.6));
+  }
+  // ドッグイヤー（小口の下寄りで、ページの角が折れている）
+  for (let i = 0; i < 6; i++) P(BX + BW - 1 + i, BY + BH - 18 + i, 5 - i, 1, lit(PAL.paper, 0.95));
+  // 栞紐（背の下から垂れて、机の上でくたっと曲がる）
+  for (let i = 0; i < 20; i++) {
+    D(BX + 6 + Math.round(Math.sin(i * 0.42) * 4), BY + BH + i, i > 14 ? lit(PAL.red, 0.75) : PAL.red);
+  }
+
+  _c.globalAlpha = 0.10; P(0, 0, 360, 40, '#0a1a2e'); _c.globalAlpha = 1;
   scanlines(0, 0, 360, 200, 0.05);
 };
+
 
 /* ── PM6:00 結果発表の背景 ──────────────────────
    18:00。12時間が終わったオフィス。窓の外は夕暮れが終わって藍に変わる直前。
