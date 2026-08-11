@@ -83,6 +83,21 @@ console.log('T2b 👑の解禁');
       r[r.crown.slot].some(x => x.t === r.crown.item.t)));
 }
 
+// T2c: メンタル。正直に書けば減らず、煽ると底を打ち、💀が増える
+console.log('T2c メンタル');
+{
+  const good = Econ.simulate(route('A', 'A'));
+  const hype = Econ.simulate(route('B', 'B'));
+  check(`正直ルートは削れない（${good.mental}）`, good.mental >= 90);
+  check(`煽りルートは底を打つ（${hype.mental}）`, hype.mental <= 5);
+  check(`メンタル100では💀ゼロ`, Econ.killTones(100).length === 0);
+  check(`メンタル0では ego/hype/flat が💀`, Econ.killTones(0).length === 3);
+  check(`💀が増えるほど正直だけが安全`, Econ.killTones(0).indexOf('honest') === -1);
+  // 疲れているとアップセルが取れなくなる
+  const lo = Econ.simulate(route('A', 'A', konetaAll(), { 11: { b: 'D', s: 'D' } }));
+  check(`アップセル率はメンタルに連動（最終${lo.mental}）`, lo.upsells > 0 && lo.mental > 50);
+}
+
 // T3: 全D×D → リストが焼け、売上≤80M
 console.log('T3 地雷ルート');
 {

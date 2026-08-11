@@ -42,6 +42,16 @@
     overflow: hidden; }
   .gauge.draining { background: var(--red); }
   #gauge-fill { height: 100%; width: 100%; background: #4d8ec4; }
+  /* 史実 5億6490万円 への到達度 */
+  #gauge-goal { background: #2a2416; }
+  #goal-fill { height: 100%; width: 0; background: var(--gold); }
+  #gauge-goal.done #goal-fill { background: var(--green); }
+  /* メンタル＝自分を焼いたか。見込み客ゲージと対になる */
+  #gauge-mental { background: #3a2530; }
+  #mental-fill { height: 100%; width: 100%; background: var(--green); }
+  #mental-fill.mid { background: var(--gold); }
+  #mental-fill.low { background: var(--red); }
+  #hud-mental { min-width: 34px; text-align: right; }
   #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
@@ -104,6 +114,8 @@
   .choice:active { background: #222a38; border-color: var(--gold); }
   /* 👑＝小ネタで正解したときだけ出る特別な選択肢 */
   .choice.crown { border-color: var(--gold); background: #1e1c14; }
+  /* 💀＝いまのメンタルでは特に刺さる選択肢。疲れるほど増える */
+  .choice.kill { border-color: #6b2a2a; background: #170f12; color: #c9b7b7; }
   /* 直前のタップが選択肢に貫通するのを防ぐ一瞬の無効時間 */
   #choices.guard .choice { pointer-events: none; }
   .choice.redo { background: none; border-style: dashed; color: var(--dim);
@@ -203,13 +215,22 @@
           <span class="hud-sales-label">総売上</span>
           <span id="hud-sales">0円</span>
         </span>
-        <span id="hud-remain">史実まで、あと 5億6490万円</span>
       </span>
     </div>
     <div class="hud-gauge-row">
+      <span>史実の差</span>
+      <div class="gauge" id="gauge-goal"><div id="goal-fill"></div></div>
+      <span id="hud-remain">あと 5億6490万円</span>
+    </div>
+    <div class="hud-gauge-row">
       <span>見込み客</span>
-      <div class="gauge"><div id="gauge-fill"></div></div>
+      <div class="gauge" id="gauge-list"><div id="gauge-fill"></div></div>
       <span id="hud-list">45,000人</span>
+    </div>
+    <div class="hud-gauge-row">
+      <span>メンタル</span>
+      <div class="gauge" id="gauge-mental"><div id="mental-fill"></div></div>
+      <span id="hud-mental">100%</span>
     </div>
   </div>
   <div id="artwrap">

@@ -5,6 +5,16 @@
    乱数ゼロ。同じ選択列は必ず同じ結果になる。
    chosen = { rounds: [{b:'A', s:'A'}, ...], koneta: {K1:'B', K2:'B', K3:'B'} } */
 const Econ = {
+  /* いまのメンタルで「地雷（💀）」になっている型。疲れるほど増える */
+  killTones(mental) {
+    let out = [];
+    for (const [th, tones] of CONF.MENTAL.killAt) if (mental < th) out = tones;
+    return out;
+  },
+  isKill(opt, mental) {
+    const t = opt.hiddenTone ? 'hype' : opt.tone;
+    return this.killTones(mental).includes(t);
+  },
   pairClass(round, bIdx, sIdx) {
     const b = round.bodies[bIdx], s = round.subjects[sIdx];
     const bt = b.hiddenTone ? 'hype' : b.tone;   // R10-D: honestの顔をしたhype
@@ -24,7 +34,7 @@ const Econ = {
     const C = CONF;
     let list = C.LIST0, buyers = 0, upsells = 0, unsub = 0, sales = 0;
     let trust = 0, rikai = 0, expect = 0, stim = 0, kizukai = 0;
-    let calm = 0, tsuriCnt = 0, egoCnt = 0, badKoneta = 0;
+    let calm = 0, tsuriCnt = 0, egoCnt = 0, badKoneta = 0, mental = C.MENTAL.start;
     let honestCnt = 0, sekkyoCnt = 0, sawTrueEnd = false, kizPt = 0;
     const log = [];
     const konetaAfter = {}; KONETA.forEach(k => konetaAfter[k.after] = k);
@@ -70,6 +80,7 @@ const Econ = {
       let uRate = C.UNSUB_BASE[b.t] * pair.unsub * (1 + stim * C.STIM_UNSUB);
       if (trueEnd) uRate *= 0.5;
 
+      const listBefore = list;
       const dBuy = Math.round(list * open * conv);
       let dUnsub = Math.round(list * uRate);
       dUnsub = Math.min(dUnsub, Math.max(0, list - dBuy));   // リストは0未満にならない
@@ -81,6 +92,8 @@ const Econ = {
       if (cls === 'tsuri') upRate += C.UP.tsuri;
       if (b.tone === 'hype' || b.hiddenTone) upRate += C.UP.hype;
       if (b.tone === 'ego') upRate += C.UP.ego;
+      // 疲れているほど、200万円の決断は後押しできない
+      upRate *= C.MENTAL.upMin + (1 - C.MENTAL.upMin) * (mental / 100);
       upRate = Math.max(C.UP.min, Math.min(C.UP.max, upRate));
       const dUp = Math.round(dBuy * upRate);
       buyers += dBuy; upsells += dUp; unsub += dUnsub;
@@ -95,14 +108,27 @@ const Econ = {
       if (dStim > 0 && calm > 0) { calm--; dStim = 0; }      // システマ: 刺激上昇を1回打ち消す
       stim = Math.max(0, stim + dStim);
 
+      /* メンタル。正直に書けば少し戻り、煽り・上から・釣りで削れる。
+         解除がまとまって出た通も刺さる。💀を選んでいれば追加で削れる */
+      const M = C.MENTAL;
+      const killed = this.isKill(b, mental) || this.isKill(s, mental);
+      let dM = -M.drain + (M.tone[b.tone] || 0);
+      if (cls === 'tsuri') dM += M.tsuri;
+      if (dUnsub > listBefore * M.burnAt) dM += M.burn;
+      if (killed) dM += M.kill;
+      const mentalBefore = mental;
+      mental = Math.max(0, Math.min(100, mental + dM));
+
       log.push({ id: round.id, cls, open, conv, dBuy, dUp, upRate, dUnsub, list, sales, trueEnd,
-        bType: b.t, sType: s.t });
+        mental, mentalBefore, dM, killed, bType: b.t, sType: s.t });
 
       // ラウンド後の小ネタ
       const k = konetaAfter[round.id];
       if (k && chosen.koneta && chosen.koneta[k.id]) {
         const c1 = k.choices.find(c => c.key === chosen.koneta[k.id]);
         const good = c1.good;
+        mental = Math.max(0, Math.min(100,
+          mental + (good ? C.MENTAL.konetaGood : C.MENTAL.konetaBad)));
         kizPt += c1.kizPt || 0;
         // 続きの小さな選択（あるものだけ）
         const c2 = k.then && chosen.koneta[k.id + '_2']
@@ -148,7 +174,7 @@ const Econ = {
     munedo -= badKoneta * M.badKoneta;
     munedo -= Math.min(M.burnCap, unsub / (C.LIST0 * M.burnUnit));  // 焼いたリスト
     munedo = Math.max(0, Math.min(100, Math.round(munedo)));
-    return { sales, buyers, upsells, unsub, list, trust, rikai, expect, stim, kizukai, kizPt, satisfy,
+    return { sales, buyers, upsells, unsub, list, mental, trust, rikai, expect, stim, kizukai, kizPt, satisfy,
       win, rank, munedo, tsuriCnt, egoCnt, honestCnt, sekkyoCnt, badKoneta, trueEnd: sawTrueEnd, log };
   },
 };
@@ -207,13 +233,18 @@ const PACE = (() => {
   const ref = Econ.simulate({ rounds: ROUNDS.map(() => ({ b: 'A', s: 'A' })), koneta: kon });
   return ref.log.map(l => l.sales * CONF.HISTORIC / ref.sales);
 })();
-/* 史実ペースに対する現在地で顔が6段階に変わる */
+/* 顔はメンタルで決まる。売上ペースは「圧勝」の判定にだけ使う。
+   ＝リストを焼いて売上だけ出ていても、顔は曇る */
 function moodKey() {
   const done = S.rounds.filter(Boolean).length;
   if (!done) return 'face_calm';
-  const r = HUD.sales / Math.max(1, PACE[done - 1]);
-  return r >= 1.25 ? 'face_joy' : r >= 1.0 ? 'face_smile' : r >= 0.72 ? 'face_calm'
-    : r >= 0.45 ? 'face_worry' : r >= 0.22 ? 'face_pale' : 'face_cry';
+  const m = HUD.mental, pace = HUD.sales / Math.max(1, PACE[done - 1]);
+  if (m >= 85 && pace >= 1.0) return 'face_joy';
+  if (m >= 70) return 'face_smile';
+  if (m >= 50) return 'face_calm';
+  if (m >= 30) return 'face_worry';
+  if (m >= 12) return 'face_pale';
+  return 'face_cry';
 }
 const BEAT_ART = { opening: 'face_normal', keisho: 'lp_page',
   K2: 'phone_flip', K3: 'letter_note', K5: 'phone_flip', K8: 'books',
@@ -254,7 +285,8 @@ function remainLabel(clock) {
   const left = 18 - parseInt(clock, 10);
   return left > 0 ? `セールス終了まで、あと${left}時間` : 'セールス終了';
 }
-let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0 };
+let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0,
+  mental: CONF.MENTAL.start };
 let atTitle = false;      // メニューから戻ってきたタイトル表示中（セーブは消さない）
 function paintHud(clock) {
   const beat = FLOW[S.beat];
@@ -270,20 +302,30 @@ function paintHud(clock) {
     cEl.classList.toggle('urgent', 18 - parseInt(clock, 10) <= 3);
   }
   $('#hud-sales').textContent = fmtYenKanji(HUD.sales);
+  // 史実（5億6490万円）への到達度をゲージに
   const remain = CONF.HISTORIC - HUD.sales;
   const rEl = $('#hud-remain');
-  rEl.textContent = remain > 0 ? `史実まで、あと ${fmtYenKanji(remain)}` : `史実超え +${fmtYenKanji(-remain)}`;
+  rEl.textContent = remain > 0 ? `あと ${fmtYenKanji(remain)}` : `超え +${fmtYenKanji(-remain)}`;
   rEl.classList.toggle('gold', remain <= 20000000);
+  const gp = Math.min(100, HUD.sales / CONF.HISTORIC * 100);
+  $('#goal-fill').style.width = gp + '%';
+  $('#gauge-goal').classList.toggle('done', remain <= 0);
   $('#hud-buyers').textContent = `フロント ${fmtNum(HUD.buyers)}本`;
   $('#hud-upsell').textContent = `アップセル ${fmtNum(HUD.upsells)}本`;
   $('#hud-list').textContent = `${fmtNum(HUD.list)}人`;
   // 見込み客ゲージ（体力）。買われたぶんも解除されたぶんも削れる
   const cap = CONF.LIST0;
   $('#gauge-fill').style.width = Math.max(0, Math.min(100, HUD.list / cap * 100)) + '%';
+  const m = Math.max(0, Math.min(100, HUD.mental));
+  const mf = $('#mental-fill');
+  mf.style.width = m + '%';
+  mf.className = m >= 70 ? '' : m >= 40 ? 'mid' : 'low';
+  $('#hud-mental').textContent = Math.round(m) + '%';
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
   const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
-  HUD = { sales: sim.sales, buyers: sim.buyers, upsells: sim.upsells, list: sim.list, unsub: sim.unsub };
+  HUD = { sales: sim.sales, buyers: sim.buyers, upsells: sim.upsells, list: sim.list,
+    unsub: sim.unsub, mental: roundIdx ? sim.mental : CONF.MENTAL.start };
 }
 let tweenRaf = null;
 function tween(from, to, dur, onStep) {
@@ -391,9 +433,10 @@ function pickChoice(items, label, toText, opts = {}) {
     }
     shuffled(items).forEach(it => {
       const b = document.createElement('button');
-      // 小ネタで正解したときだけ出る選択肢には👑をつける（＝拾った甲斐が目に見える）
-      b.className = 'choice' + (it.crown ? ' crown' : '');
-      b.textContent = (it.crown ? '👑 ' : '') + toText(it);
+      // 👑＝小ネタで正解すると出る／💀＝いまのメンタルでは特に刺さる
+      const kill = !it.crown && Econ.isKill(it, HUD.mental);
+      b.className = 'choice' + (it.crown ? ' crown' : kill ? ' kill' : '');
+      b.textContent = (it.crown ? '👑 ' : kill ? '💀 ' : '') + toText(it);
       b.onclick = () => { choicesEl().innerHTML = ''; res(it); };
       choicesEl().appendChild(b);
     });
@@ -593,7 +636,7 @@ async function showSendResult(round, idx) {
   HUD.upsells = simAfter.upsells; paintHud();
   await wait(step.dUnsub > 0 ? 800 : 200);
   // 少し遅れて解除（画面を赤くする）
-  const gauge = $('.gauge');
+  const gauge = $('#gauge-list');
   if (step.dUnsub > 0) {
     Sfx.play('unsub');
     document.body.classList.add('flash-red');
@@ -608,7 +651,15 @@ async function showSendResult(round, idx) {
     ]);
     gauge.classList.remove('draining');
   }
-  HUD.list = simAfter.list; HUD.unsub = simAfter.unsub; paintHud();
+  HUD.list = simAfter.list; HUD.unsub = simAfter.unsub;
+  // メンタルも同じ場面で動かす（削れたら赤くふちどる）
+  if (step.mental !== step.mentalBefore) {
+    const mf = $('#mental-fill');
+    if (step.dM < 0) { mf.style.outline = '1px solid var(--red)'; Sfx.play('miss'); }
+    await tween(step.mentalBefore, step.mental, 700, v => { HUD.mental = v; paintHud(); });
+    setTimeout(() => { mf.style.outline = ''; }, FAST ? 0 : 500);
+  }
+  HUD.mental = step.mental; paintHud();
   // 今回の売上（解除の下。1通ぶんの成果をここで締める）
   const dSales = simAfter.sales - simBefore.sales;
   const salesEl = stage().querySelector('.send-sales');
