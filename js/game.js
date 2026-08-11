@@ -937,8 +937,7 @@ async function runEnding() {
     // 行動することについて、本人の言葉で締める
     for (const page of E.message) await showLines(page, { cls: 'center' });
     stage().innerHTML = `<div class="clear-wrap">
-      <div class="shime">${E.shime[0]}</div>
-      <div class="shime big">${E.shime[1]}</div></div>`;
+      <div class="shime big">${E.shime}</div></div>`;
     await wait(900);
   } else {
     art('result_bg');
