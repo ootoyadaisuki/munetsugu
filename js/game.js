@@ -291,7 +291,7 @@ function remainLabel(clock) {
   return left > 0 ? `セールス終了まで、あと${left}時間` : 'セールス終了';
 }
 let HUD = { sales: 0, buyers: 0, upsells: 0, list: CONF.LIST0, unsub: 0,
-  mental: CONF.MENTAL.start };
+  mental: CONF.MENTAL.start, trust: 0, rikai: 0 };
 let atTitle = false;      // メニューから戻ってきたタイトル表示中（セーブは消さない）
 function paintHud(clock) {
   const beat = FLOW[S.beat];
@@ -325,11 +325,15 @@ function paintHud(clock) {
   const m = Math.max(0, Math.min(100, HUD.mental));
   $('#mental-fill').style.width = m + '%';
   $('#hud-mental').textContent = Math.round(m) + '%';
+  const pct = (v, max) => Math.max(0, Math.min(100, v / max * 100)) + '%';
+  $('#trust-fill').style.width = pct(HUD.trust, CONF.TRUST_MAX);
+  $('#rikai-fill').style.width = pct(HUD.rikai, CONF.RIKAI_MAX);
 }
 function syncHudTo(roundIdx) {   // roundIdx ラウンドまで適用済みの状態にHUDを合わせる
   const sim = Econ.simulate({ rounds: S.rounds.slice(0, roundIdx), koneta: S.koneta });
   HUD = { sales: sim.sales, buyers: sim.buyers, upsells: sim.upsells, list: sim.list,
-    unsub: sim.unsub, mental: roundIdx ? sim.mental : CONF.MENTAL.start };
+    unsub: sim.unsub, mental: roundIdx ? sim.mental : CONF.MENTAL.start,
+    trust: sim.trust, rikai: sim.rikai };
 }
 let tweenRaf = null;
 function tween(from, to, dur, onStep) {

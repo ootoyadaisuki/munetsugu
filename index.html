@@ -50,6 +50,11 @@
   #gauge-mental { background: #7a2f2f; }
   #mental-fill { height: 100%; width: 100%; background: var(--green); }
   #hud-mental { min-width: 34px; text-align: right; }
+  /* 信用と顧客理解。この2つがアップセル＝売上の9割を動かす */
+  .hud-pair { gap: 6px; }
+  #gauge-trust, #gauge-rikai { background: #1b2330; }
+  #trust-fill { height: 100%; width: 0; background: #6bb8ff; }
+  #rikai-fill { height: 100%; width: 0; background: #b58ce0; }
   #hud-remain { color: var(--blue); font-size: 11px; }
   #hud-remain.gold { color: var(--gold); font-weight: bold; }
   /* 残り時間はドット絵の下。ここが一番目に入る */
@@ -94,7 +99,7 @@
   .sogo-rank { font-size: 30px; font-weight: bold; color: var(--gold); }
 
   #artwrap { position: relative; flex-shrink: 0; display: none; }
-  #art { width: 100%; height: auto; max-height: 24vh; object-fit: contain;
+  #art { width: 100%; height: auto; max-height: 21vh; object-fit: contain;
     image-rendering: pixelated; display: block; border-bottom: 2px solid var(--line);
     background: #0b0e16; }
   #stage { flex: 0 1 auto; padding: 14px 16px; overflow-y: auto; position: relative; min-height: 0; }
@@ -235,6 +240,12 @@
       <span>メンタル</span>
       <div class="gauge" id="gauge-mental"><div id="mental-fill"></div></div>
       <span id="hud-mental">100%</span>
+    </div>
+    <div class="hud-gauge-row hud-pair">
+      <span>信用</span>
+      <div class="gauge" id="gauge-trust"><div id="trust-fill"></div></div>
+      <span>顧客理解</span>
+      <div class="gauge" id="gauge-rikai"><div id="rikai-fill"></div></div>
     </div>
   </div>
   <div id="artwrap">
